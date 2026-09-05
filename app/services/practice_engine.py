@@ -9,7 +9,7 @@ import time
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from ..data.practice_tasks import PRACTICE_TASKS
+from ..data.practice_tasks import PRACTICE_TASKS, get_all_practice_tasks
 from .gamification import GamificationService
 from .library_task_generator import LibraryTaskGeneratorService
 
@@ -20,7 +20,7 @@ class PracticeEngineService:
         solved_ids = set(profile.get("solved_tasks", []))
 
         results = []
-        for task in PRACTICE_TASKS:
+        for task in get_all_practice_tasks():
             results.append({
                 "id": task["id"],
                 "title": task["title"],
@@ -36,7 +36,7 @@ class PracticeEngineService:
 
     @classmethod
     def get_task(cls, task_id: str) -> Optional[Dict[str, Any]]:
-        for task in PRACTICE_TASKS:
+        for task in get_all_practice_tasks():
             if task["id"] == task_id:
                 return task
         dyn = LibraryTaskGeneratorService.get_dynamic_task(task_id)
@@ -94,6 +94,11 @@ class PracticeEngineService:
             award_info = None
             if all_passed:
                 award_info = GamificationService.award_task_completion(task_id, task["reward_stars"], user_key_or_token)
+                try:
+                    from .daily_quests_service import DailyQuestsService
+                    DailyQuestsService.record_activity(user_key_or_token, "solve_task")
+                except Exception:
+                    pass
 
             return {
                 "success": all_passed,

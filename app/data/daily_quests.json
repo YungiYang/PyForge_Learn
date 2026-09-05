@@ -1,0 +1,225 @@
+{
+  "date": "2026-09-05",
+  "user_progress": {
+    "api_user_1788639414": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788639414": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788639426": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788639427": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788639481": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788639481": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788639493": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788639493": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640133": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640135": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640149": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640149": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640217": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640217": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640272": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640272": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640293": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640293": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "regulardev": {
+      "community_action": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false,
+        "uprogress": 1
+      },
+      "solve_task": {
+        "progress": 2,
+        "completed": true,
+        "claimed": true,
+        "uprogress": 2
+      }
+    },
+    "api_user_1788640316": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640316": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640346": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640347": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640361": {
+      "community_action": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "gamer_1788640361": {
+      "solve_task": {
+        "progress": 0,
+        "completed": false,
+        "claimed": false,
+        "uprogress": 1
+      }
+    },
+    "api_user_1788640385": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788640385": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    }
+  }
+}

@@ -22,6 +22,24 @@ from app.services.sandbox import SandboxService
 from app.services.ai_scout import AIScoutService
 
 class TestPyForge(unittest.TestCase):
+    _data_backups = {}
+
+    @classmethod
+    def setUpClass(cls):
+        data_dir = Path(__file__).resolve().parent.parent / "app" / "data"
+        for fname in ["users.json", "forum_data.json", "ideas_data.json", "sessions.json"]:
+            fpath = data_dir / fname
+            if fpath.exists():
+                with open(fpath, "r", encoding="utf-8") as f:
+                    cls._data_backups[fname] = f.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        data_dir = Path(__file__).resolve().parent.parent / "app" / "data"
+        for fname, content in cls._data_backups.items():
+            fpath = data_dir / fname
+            with open(fpath, "w", encoding="utf-8") as f:
+                f.write(content)
 
     def test_overview_endpoint(self):
         data = asyncio.run(get_overview())

@@ -126,6 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
   await checkAuthState();
   loadUserProfile();
+  loadDailyQuests();
   loadPracticeTasks();
   loadAiSuggestions();
   loadTemplates();
@@ -157,6 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeNewTopicModal();
       closeTopicDetailModal();
       closeNewIdeaModal();
+      closeDevPanelModal();
     }
   });
 });
@@ -220,6 +222,8 @@ function switchTab(tabId) {
     loadForumTopics();
   } else if (tabId === 'ideas') {
     loadIdeas();
+  } else if (tabId === 'practice') {
+    loadDailyQuests();
   }
 
   // Re-run Prism and Lucide
@@ -1310,9 +1314,11 @@ async function submitPracticeSolution() {
         showToast(`🎉 Потрясающе! Вы заработали +${report.award_info.awarded_stars} ⭐!`);
         await loadUserProfile();
         await loadPracticeTasks();
+        await loadDailyQuests();
         if (currentTab === 'leaderboard') loadLeaderboard();
       } else {
         showToast('Задание успешно решено повторно! 👍');
+        await loadDailyQuests();
       }
     } else {
       badge.innerText = '❌ ОШИБКА В ТЕСТАХ';
@@ -1780,6 +1786,15 @@ async function checkAuthState() {
 
 function updateHeaderUserWidget(user) {
   const container = document.getElementById('user-header-auth-widget');
+  const devHeaderBtn = document.getElementById('header-dev-panel-btn');
+  if (devHeaderBtn) {
+    if (user && isDeveloperUser(user)) {
+      devHeaderBtn.classList.remove('hidden');
+    } else {
+      devHeaderBtn.classList.add('hidden');
+    }
+  }
+
   if (!container) return;
 
   if (user && user.username) {
@@ -1902,6 +1917,7 @@ async function handleLoginSubmit(event) {
     showToast(`С возвращением, ${currentUser.display_name || currentUser.username}! 👋`);
     await loadUserProfile();
     await loadPracticeTasks();
+    await loadDailyQuests();
     if (currentTab === 'leaderboard') loadLeaderboard();
   } catch (err) {
     showAuthError(err.message);
@@ -1947,6 +1963,7 @@ async function handleRegisterSubmit(event) {
     showToast(`Добро пожаловать в PyForge, ${currentUser.display_name || currentUser.username}! 🚀`);
     await loadUserProfile();
     await loadPracticeTasks();
+    await loadDailyQuests();
     if (currentTab === 'leaderboard') loadLeaderboard();
   } catch (err) {
     showAuthError(err.message);
@@ -1975,6 +1992,7 @@ async function logoutUser() {
   showToast('Вы успешно вышли из аккаунта');
   await loadUserProfile();
   await loadPracticeTasks();
+  await loadDailyQuests();
   if (currentTab === 'leaderboard') loadLeaderboard();
 }
 
@@ -3095,5 +3113,552 @@ async function handleCreateIdeaSubmit(event) {
     btn.innerHTML = 'Отправить предложение';
   }
 }
+
+// ==========================================
+// --- DAILY QUESTS & REWARDS SYSTEM ---
+// ==========================================
+
+let questResetTimerInterval = null;
+let currentQuestsData = null;
+
+async function loadDailyQuests() {
+  try {
+    const res = await fetch('/api/quests/daily', {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    currentQuestsData = data;
+    renderDailyQuests(data);
+    startQuestResetTimer(data.seconds_to_reset || 0);
+  } catch (err) {
+    console.error('Ошибка загрузки ежедневных квестов:', err);
+  }
+}
+
+function renderDailyQuests(data) {
+  const container = document.getElementById('daily-quests-list');
+  const badge = document.getElementById('quests-completed-badge');
+  const topNavCount = document.getElementById('top-nav-quests-count');
+  
+  if (!container || !data) return;
+
+  if (badge) {
+    badge.innerText = `${data.completed_count || 0} / ${data.total_count || 4}`;
+  }
+  if (topNavCount) {
+    topNavCount.innerText = `[${data.completed_count || 0}/${data.total_count || 4}]`;
+  }
+
+  container.innerHTML = '';
+
+  (data.quests || []).forEach(q => {
+    const isDone = q.completed;
+    const isClaimed = q.claimed;
+    const percent = Math.min(100, Math.round((q.progress / q.target_count) * 100));
+
+    let actionButtonHtml = '';
+    if (isClaimed) {
+      actionButtonHtml = `
+        <span class="px-3 py-1.5 rounded-xl bg-slate-800/80 text-emerald-400 text-xs font-bold border border-emerald-500/30 flex items-center gap-1">
+          <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+          <span>Получено</span>
+        </span>
+      `;
+    } else if (isDone) {
+      actionButtonHtml = `
+        <button onclick="claimQuestReward('${q.id}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-extrabold shadow-lg shadow-amber-500/25 animate-pulse transition flex items-center gap-1.5">
+          <i data-lucide="gift" class="w-3.5 h-3.5"></i>
+          <span>Забрать +${q.reward_stars} ⭐</span>
+        </button>
+      `;
+    } else {
+      actionButtonHtml = `
+        <span class="px-3 py-1.5 rounded-xl bg-slate-800/50 text-slate-400 text-xs font-mono font-medium border border-slate-700/50 flex items-center gap-1">
+          <i data-lucide="clock" class="w-3 h-3 text-slate-500"></i>
+          <span>${q.progress}/${q.target_count}</span>
+        </span>
+      `;
+    }
+
+    const card = document.createElement('div');
+    card.className = `p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${isClaimed ? 'bg-slate-900/40 border-slate-800/60 opacity-80' : isDone ? 'bg-amber-950/20 border-amber-500/40 shadow-md shadow-amber-500/5' : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'}`;
+    
+    card.innerHTML = `
+      <div class="flex items-start space-x-3 flex-1">
+        <div class="w-10 h-10 rounded-xl ${isDone ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-sky-400 border border-slate-700'} flex items-center justify-center font-bold text-lg flex-shrink-0">
+          <i data-lucide="${q.icon || 'target'}" class="w-5 h-5"></i>
+        </div>
+        <div class="space-y-1.5 flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h4 class="font-bold text-xs sm:text-sm text-white">${escapeHtml(q.title)}</h4>
+            <span class="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[10px] font-mono">+${q.reward_stars} ⭐</span>
+            <span class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 font-bold text-[10px] font-mono">+${q.reward_xp} XP</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-snug">${escapeHtml(q.description)}</p>
+          
+          <!-- Progress Bar -->
+          <div class="space-y-1 pt-1 max-w-md">
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span>Прогресс: ${q.progress} из ${q.target_count}</span>
+              <span class="${isDone ? 'text-amber-400 font-bold' : 'text-slate-400'}">${percent}%</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+              <div class="h-full rounded-full transition-all duration-500 ${isDone ? 'bg-gradient-to-r from-amber-500 to-yellow-400' : 'bg-gradient-to-r from-sky-500 to-indigo-500'}" style="width: ${percent}%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-shrink-0 self-end sm:self-center">
+        ${actionButtonHtml}
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+}
+
+async function claimQuestReward(questId) {
+  try {
+    const res = await fetch('/api/quests/claim', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ quest_id: questId })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`🎁 Награда получена: +${data.reward_stars} ⭐ и +${data.reward_xp} XP!`);
+      await loadUserProfile();
+      await loadDailyQuests();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+    } else {
+      showToast(data.detail || 'Не удалось забрать награду');
+    }
+  } catch (err) {
+    showToast('Ошибка при получении награды');
+  }
+}
+
+function startQuestResetTimer(initialSeconds) {
+  let secondsRemaining = Math.max(0, initialSeconds);
+
+  if (questResetTimerInterval) {
+    clearInterval(questResetTimerInterval);
+  }
+
+  const updateDisplay = () => {
+    const hours = Math.floor(secondsRemaining / 3600);
+    const minutes = Math.floor((secondsRemaining % 3600) / 60);
+    const seconds = secondsRemaining % 60;
+    const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    
+    const timerElem = document.getElementById('daily-quests-timer');
+    if (timerElem) {
+      timerElem.innerText = formatted;
+    }
+
+    if (secondsRemaining <= 0) {
+      clearInterval(questResetTimerInterval);
+      loadDailyQuests();
+    } else {
+      secondsRemaining--;
+    }
+  };
+
+  updateDisplay();
+  questResetTimerInterval = setInterval(updateDisplay, 1000);
+}
+
+function scrollToDailyQuests() {
+  switchTab('practice');
+  setTimeout(() => {
+    const sec = document.getElementById('daily-quests-section');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 100);
+}
+
+
+// ==========================================
+// --- CREATOR & DEVELOPER DEV PANEL (CHEVELS) ---
+// ==========================================
+
+let devPanelActiveTab = 'stars';
+let devLoadedIdeas = [];
+
+function openDevPanelModal() {
+  if (!currentUser || !isDeveloperUser(currentUser)) {
+    showToast('⛔ Доступ к Дев-панели разрешен только Создателю Chevels');
+    return;
+  }
+  const modal = document.getElementById('dev-panel-modal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  switchDevPanelTab(devPanelActiveTab || 'stars');
+  lucide.createIcons();
+}
+
+function closeDevPanelModal() {
+  const modal = document.getElementById('dev-panel-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchDevPanelTab(tabName) {
+  devPanelActiveTab = tabName;
+
+  // Update tabs buttons
+  document.querySelectorAll('.dev-panel-nav-btn').forEach(btn => {
+    btn.classList.remove('active', 'text-amber-400', 'bg-amber-500/15', 'border-amber-500/30');
+    btn.classList.add('text-slate-400', 'border-transparent');
+  });
+  const activeBtn = document.getElementById(`dev-tab-btn-${tabName}`);
+  if (activeBtn) {
+    activeBtn.classList.add('active', 'text-amber-400', 'bg-amber-500/15', 'border-amber-500/30');
+    activeBtn.classList.remove('text-slate-400', 'border-transparent');
+  }
+
+  // Update tabs content
+  document.querySelectorAll('.dev-panel-content-tab').forEach(tab => {
+    tab.classList.add('hidden');
+  });
+  const activeContent = document.getElementById(`dev-tab-${tabName}`);
+  if (activeContent) {
+    activeContent.classList.remove('hidden');
+  }
+
+  // Lazy loaders
+  if (tabName === 'ideas') {
+    loadDevIdeasSelect();
+  } else if (tabName === 'users') {
+    loadDevUsersTable();
+  }
+
+  lucide.createIcons();
+}
+
+async function handleDevAddStars(amount) {
+  const targetUser = document.getElementById('dev-stars-target-user')?.value.trim() || 'Chevels';
+  try {
+    const res = await fetch('/api/dev/stars/modify', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        username: targetUser,
+        amount: amount
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`⭐ Пользователю ${targetUser} начислено +${amount.toLocaleString()} звезд! Новый баланс: ${data.user_stars.toLocaleString()}`);
+      await loadUserProfile();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+    } else {
+      alert(data.detail || 'Ошибка изменения баланса');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function handleDevSetStarsSubmit(exactAmount) {
+  const targetUser = document.getElementById('dev-stars-target-user')?.value.trim() || 'Chevels';
+  try {
+    const res = await fetch('/api/dev/stars/modify', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        username: targetUser,
+        exact_amount: exactAmount
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`⭐ Баланс ${targetUser} установлен на ${exactAmount.toLocaleString()} звезд!`);
+      await loadUserProfile();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+    } else {
+      alert(data.detail || 'Ошибка изменения баланса');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function handleDevCustomSetStars() {
+  const input = document.getElementById('dev-exact-stars-input');
+  const val = parseInt(input?.value);
+  if (isNaN(val) || val < 0) {
+    alert('Пожалуйста, введите корректное число звезд (от 0 до 999999)');
+    return;
+  }
+  handleDevSetStarsSubmit(val);
+}
+
+async function handleDevCreateTitleSubmit(event) {
+  event.preventDefault();
+  const id = document.getElementById('dev-title-id').value.trim();
+  const name = document.getElementById('dev-title-name').value.trim();
+  const icon = document.getElementById('dev-title-icon').value.trim() || '⚡';
+  const rarity = document.getElementById('dev-title-rarity').value;
+  const cost = parseInt(document.getElementById('dev-title-cost').value) || 0;
+  const description = document.getElementById('dev-title-desc').value.trim();
+  const color = document.getElementById('dev-title-color').value;
+  const autoUnlock = document.getElementById('dev-title-auto-unlock').checked;
+
+  try {
+    const res = await fetch('/api/dev/titles/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        id,
+        name,
+        icon,
+        rarity,
+        cost_stars: cost,
+        description,
+        color_class: color,
+        auto_unlock_for_creator: autoUnlock
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`👑 Титул «${name}» успешно создан и добавлен в Магазин!`);
+      document.getElementById('dev-title-id').value = '';
+      document.getElementById('dev-title-name').value = '';
+      document.getElementById('dev-title-desc').value = '';
+      await loadUserProfile();
+    } else {
+      alert(data.detail || 'Ошибка создания титула');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function handleDevCreateTaskSubmit(event) {
+  event.preventDefault();
+  const id = document.getElementById('dev-task-id').value.trim();
+  const title = document.getElementById('dev-task-title').value.trim();
+  const category = document.getElementById('dev-task-category').value;
+  const difficulty = document.getElementById('dev-task-difficulty').value;
+  const xpReward = parseInt(document.getElementById('dev-task-xp').value) || 100;
+  const starsReward = parseInt(document.getElementById('dev-task-stars').value) || 25;
+  const description = document.getElementById('dev-task-desc').value.trim();
+  const starterCode = document.getElementById('dev-task-starter').value;
+  const testInput = document.getElementById('dev-task-test-input').value.trim();
+  const expectedOutput = document.getElementById('dev-task-expected').value.trim();
+
+  const testCases = [];
+  if (testInput || expectedOutput) {
+    testCases.push({
+      input: testInput,
+      expected: expectedOutput,
+      name: 'Базовый тест кейс'
+    });
+  }
+
+  try {
+    const res = await fetch('/api/dev/tasks/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        id,
+        title,
+        category,
+        difficulty,
+        xp_reward: xpReward,
+        stars_reward: starsReward,
+        description,
+        starter_code: starterCode,
+        test_cases: testCases
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`💻 Задание «${title}» успешно добавлено в Тренажёр!`);
+      document.getElementById('dev-task-id').value = '';
+      document.getElementById('dev-task-title').value = '';
+      document.getElementById('dev-task-desc').value = '';
+      await loadPracticeTasks();
+    } else {
+      alert(data.detail || 'Ошибка создания задания');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function loadDevIdeasSelect() {
+  const select = document.getElementById('dev-ideas-select');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Загрузка предложений... --</option>';
+
+  try {
+    const res = await fetch('/api/ideas', {
+      headers: getAuthHeaders()
+    });
+    const ideas = await res.json();
+    devLoadedIdeas = ideas;
+
+    if (ideas.length === 0) {
+      select.innerHTML = '<option value="">(Пока нет предложений от сообщества)</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">-- Выберите предложение из списка --</option>';
+    ideas.forEach(idea => {
+      const opt = document.createElement('option');
+      opt.value = idea.id;
+      opt.innerText = `[${idea.status.toUpperCase()}] ${idea.title} (от @${idea.author_username})`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    select.innerHTML = '<option value="">Ошибка загрузки предложений</option>';
+  }
+}
+
+function onDevIdeaSelected() {
+  const select = document.getElementById('dev-ideas-select');
+  const ideaId = select.value;
+  const preview = document.getElementById('dev-selected-idea-preview');
+  const authorTag = document.getElementById('dev-idea-author-tag');
+  const dateTag = document.getElementById('dev-idea-date-tag');
+  const descPreview = document.getElementById('dev-idea-desc-preview');
+  const statusSelect = document.getElementById('dev-idea-new-status');
+  const responseInput = document.getElementById('dev-idea-response-text');
+
+  if (!ideaId) {
+    preview.classList.add('hidden');
+    return;
+  }
+
+  const idea = devLoadedIdeas.find(i => i.id === ideaId);
+  if (!idea) return;
+
+  preview.classList.remove('hidden');
+  authorTag.innerText = `Автор: @${idea.author_username} (${idea.author_display_name || ''})`;
+  dateTag.innerText = idea.created_at ? idea.created_at.split('T')[0] : '';
+  descPreview.innerText = idea.description;
+
+  if (statusSelect) statusSelect.value = idea.status || 'under_review';
+  if (responseInput) responseInput.value = idea.dev_response || '';
+}
+
+async function handleDevRespondIdeaSubmit(event) {
+  event.preventDefault();
+  const select = document.getElementById('dev-ideas-select');
+  const ideaId = select.value;
+  const status = document.getElementById('dev-idea-new-status').value;
+  const devResponse = document.getElementById('dev-idea-response-text').value.trim();
+
+  if (!ideaId) {
+    alert('Пожалуйста, выберите предложение для ответа');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dev/ideas/status', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        idea_id: ideaId,
+        status: status,
+        dev_response: devResponse
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast('Ответ Создателя и статус предложения успешно обновлены! 💡');
+      await loadIdeas();
+      await loadDevIdeasSelect();
+    } else {
+      alert(data.detail || 'Ошибка обновления статуса');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function loadDevUsersTable() {
+  const tbody = document.getElementById('dev-users-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">Загрузка пользователей...</td></tr>';
+
+  try {
+    const res = await fetch('/api/dev/users', {
+      headers: getAuthHeaders()
+    });
+    const users = await res.json();
+
+    if (!Array.isArray(users) || users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">Пользователи не найдены</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    users.forEach(u => {
+      const isDev = isDeveloperUser(u);
+      const row = document.createElement('tr');
+      row.className = 'hover:bg-slate-900/60 transition';
+      row.innerHTML = `
+        <td class="p-2.5 flex items-center gap-2">
+          <img src="${u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}" class="w-6 h-6 rounded-md border ${isDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-950">
+          <div class="leading-tight">
+            <div class="font-bold text-white flex items-center gap-1">
+              <span>${escapeHtml(u.display_name || u.username)}</span>
+              ${getDeveloperBadgeHtml(u)}
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono">@${escapeHtml(u.username)}</div>
+          </div>
+        </td>
+        <td class="p-2.5 font-bold text-amber-400">Ур. ${u.level || 1}</td>
+        <td class="p-2.5 font-mono font-bold text-yellow-300">${(u.stars || 0).toLocaleString()} ⭐</td>
+        <td class="p-2.5 font-mono text-sky-400">${(u.xp || 0).toLocaleString()} XP</td>
+        <td class="p-2.5 text-slate-300 font-mono">${(u.unlocked_titles || []).length}</td>
+        <td class="p-2.5">
+          <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" class="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-semibold rounded-lg text-[10px] transition">
+            +1,000 ⭐
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    lucide.createIcons();
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-400">Ошибка загрузки списка пользователей</td></tr>';
+  }
+}
+
+async function handleDevQuickGiveStarsToUser(username, amount) {
+  try {
+    const res = await fetch('/api/dev/stars/modify', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        username: username,
+        amount: amount
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`⭐ Пользователю @${username} начислено +${amount.toLocaleString()} звезд!`);
+      loadDevUsersTable();
+      if (currentUser && currentUser.username.toLowerCase() === username.toLowerCase()) {
+        await loadUserProfile();
+      }
+    } else {
+      alert(data.detail || 'Ошибка начисления звезд');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 
 

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "test_custom_dev_task_1",
+    "title": "Сложение двух чисел",
+    "difficulty": "easy",
+    "category": "algorithms",
+    "reward_stars": 50,
+    "description": "Сложите a и b.",
+    "starter_code": "def solution(a, b):\n    return a + b",
+    "entry_point": "solution",
+    "test_cases": [
+      {
+        "input": "2 + 3",
+        "expected": "5",
+        "name": "Тест 2+3"
+      }
+    ]
+  }
+]

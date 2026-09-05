@@ -97,3 +97,33 @@ class IdeasService:
                 cls._save_ideas(ideas)
                 return {"success": True, "votes": i["votes"], "has_voted": has_voted}
         raise ValueError("Идея не найдена")
+
+    @classmethod
+    def update_idea_status(cls, idea_id: str, status: str, dev_response: Optional[str] = None) -> Dict[str, Any]:
+        ideas = cls._load_ideas()
+        status_labels = {
+            "under_review": "💡 На рассмотрении",
+            "in_progress": "🚀 В разработке",
+            "completed": "✅ Реализовано",
+            "rejected": "❌ Отклонено"
+        }
+        for i in ideas:
+            if i["id"] == idea_id:
+                if status in status_labels:
+                    i["status"] = status
+                    i["status_label"] = status_labels[status]
+                if dev_response is not None:
+                    i["dev_response"] = dev_response.strip()
+                cls._save_ideas(ideas)
+                return i
+        raise ValueError("Идея не найдена")
+
+    @classmethod
+    def delete_idea(cls, idea_id: str) -> bool:
+        ideas = cls._load_ideas()
+        filtered = [i for i in ideas if i["id"] != idea_id]
+        if len(filtered) != len(ideas):
+            cls._save_ideas(filtered)
+            return True
+        return False
+

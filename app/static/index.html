@@ -64,8 +64,14 @@
         </div>
       </div>
 
-      <!-- TOP NAVIGATION BUTTONS (Leaderboard, Forum, Ideas) -->
+      <!-- TOP NAVIGATION BUTTONS (Quests, Leaderboard, Forum, Ideas) -->
       <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+        <button onclick="switchTab('practice')" id="top-nav-quests" class="top-nav-btn flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-emerald-400 hover:bg-slate-800/80 transition">
+          <i data-lucide="target" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Квесты дня</span>
+          <span id="top-quests-badge" class="hidden md:inline-block text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold ml-1">0/4</span>
+        </button>
+
         <button onclick="switchTab('leaderboard')" id="top-nav-leaderboard" class="top-nav-btn flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-amber-400 hover:bg-slate-800/80 transition">
           <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-400"></i>
           <span>Лидерборд</span>
@@ -84,8 +90,14 @@
       </nav>
     </div>
 
-    <!-- User Profile & Quick Search Bar -->
+    <!-- User Profile, Dev Panel & Quick Search Bar -->
     <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+      <!-- EXCLUSIVE CREATOR DEV PANEL BUTTON (visible only for Chevels) -->
+      <button id="header-dev-panel-btn" onclick="openDevPanelModal()" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 hover:from-amber-500/30 hover:to-rose-500/30 border border-amber-500/60 text-amber-300 font-extrabold text-xs shadow-md shadow-amber-500/20 transition group">
+        <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition"></i>
+        <span>⚡ Дев-Панель</span>
+      </button>
+
       <!-- Stars and Title Widget -->
       <button onclick="openTitleShopModal()" class="flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-amber-500/30 text-xs transition shadow-sm group">
         <span class="flex items-center gap-1 font-bold text-amber-400">
@@ -218,6 +230,37 @@
               <i data-lucide="crown" class="w-4 h-4 text-amber-400"></i>
               <span>Зал Титулов</span>
             </button>
+          </div>
+        </div>
+
+        <!-- DAILY QUESTS SECTION -->
+        <div id="daily-quests-section" class="glass-panel rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-slate-900/70 to-slate-950/80 space-y-4 shadow-lg shadow-emerald-500/5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold">
+                <i data-lucide="target" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-white tracking-wide">Ежедневные квесты дня</h3>
+                  <span id="quests-progress-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">0 / 4 Выполнено</span>
+                </div>
+                <p class="text-xs text-slate-400">Выполняйте задания каждый день и получайте дополнительные ⭐ звёзды!</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5 text-xs text-slate-300 font-mono bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span class="text-slate-400">Сброс через:</span>
+                <span id="quests-reset-timer" class="font-bold text-emerald-300">--:--:--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 Quest Cards Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="daily-quests-cards-container">
+            <!-- Rendered dynamically -->
           </div>
         </div>
 
@@ -1638,6 +1681,338 @@
           <button type="submit" id="btn-submit-idea" class="px-5 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-yellow-500/25">Отправить предложение</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- DEV PANEL MODAL (EXCLUSIVE FOR CREATOR CHEVELS) -->
+  <div id="dev-panel-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-500/50 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-amber-500/10 overflow-hidden animate-fade-in">
+      <!-- Dev Panel Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950 font-black">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-black text-white tracking-wide">Панель управления Создателя (Dev Panel)</h3>
+              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold tracking-wider">CHEVELS ONLY</span>
+            </div>
+            <p class="text-xs text-slate-400">Управление экономикой звезд, каталогом титулов, базой задач тренажера и идеями</p>
+          </div>
+        </div>
+        <button onclick="closeDevPanelModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Dev Panel Navigation Tabs -->
+      <div class="flex border-b border-slate-800 bg-slate-950/60 px-4 overflow-x-auto gap-1 py-1.5 text-xs font-semibold">
+        <button onclick="switchDevPanelTab('stars')" id="dev-tab-btn-stars" class="dev-panel-nav-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-amber-400 bg-amber-500/15 border border-amber-500/30">
+          <i data-lucide="star" class="w-3.5 h-3.5"></i>
+          <span>Звёзды & Баланс</span>
+        </button>
+        <button onclick="switchDevPanelTab('titles')" id="dev-tab-btn-titles" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="award" class="w-3.5 h-3.5"></i>
+          <span>Титулы магазина</span>
+        </button>
+        <button onclick="switchDevPanelTab('tasks')" id="dev-tab-btn-tasks" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="code-2" class="w-3.5 h-3.5"></i>
+          <span>Новые задачи</span>
+        </button>
+        <button onclick="switchDevPanelTab('ideas')" id="dev-tab-btn-ideas" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="message-square-code" class="w-3.5 h-3.5"></i>
+          <span>Модерация идей</span>
+        </button>
+        <button onclick="switchDevPanelTab('users')" id="dev-tab-btn-users" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          <span>Все пользователи</span>
+        </button>
+      </div>
+
+      <!-- Dev Panel Content Body -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-300">
+
+        <!-- TAB 1: STARS & BALANCE -->
+        <div id="dev-tab-stars" class="dev-panel-content-tab space-y-5">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+              Быстрое начисление ⭐ звезд
+            </h4>
+            <p class="text-slate-400 text-xs">Выберите целевого пользователя (по умолчанию Chevels) и добавьте звезды в один клик:</p>
+            
+            <div class="flex items-center gap-3">
+              <label class="font-bold text-slate-300">Логин пользователя:</label>
+              <input type="text" id="dev-stars-target-user" value="Chevels" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs w-48 focus:outline-none focus:border-amber-500">
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
+              <button onclick="handleDevAddStars(100)" class="px-3 py-2 bg-slate-900 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold rounded-xl transition flex items-center justify-center gap-1">
+                +100 ⭐
+              </button>
+              <button onclick="handleDevAddStars(500)" class="px-3 py-2 bg-slate-900 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold rounded-xl transition flex items-center justify-center gap-1">
+                +500 ⭐
+              </button>
+              <button onclick="handleDevAddStars(1000)" class="px-3 py-2 bg-slate-900 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold rounded-xl transition flex items-center justify-center gap-1">
+                +1,000 ⭐
+              </button>
+              <button onclick="handleDevAddStars(10000)" class="px-3 py-2 bg-slate-900 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold rounded-xl transition flex items-center justify-center gap-1">
+                +10,000 ⭐
+              </button>
+              <button onclick="handleDevSetStarsSubmit(999999)" class="px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black rounded-xl hover:opacity-95 transition flex items-center justify-center gap-1 col-span-2 sm:col-span-1">
+                MAX 999k ⭐
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-sky-400"></i>
+              Точная установка точного баланса
+            </h4>
+            <div class="flex flex-wrap items-center gap-3">
+              <input type="number" id="dev-exact-stars-input" placeholder="Количество звезд (напр. 50000)" min="0" max="999999" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs w-64 focus:outline-none focus:border-sky-500">
+              <button onclick="handleDevCustomSetStars()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-md transition">
+                Установить точный баланс
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: TITLES GENERATOR -->
+        <div id="dev-tab-titles" class="dev-panel-content-tab hidden space-y-4">
+          <form onsubmit="handleDevCreateTitleSubmit(event)" class="space-y-3 bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+              <i data-lucide="crown" class="w-4 h-4 text-yellow-400"></i>
+              Создать и добавить новый титул в Магазин
+            </h4>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">ID титула (англ., латиница):</label>
+                <input type="text" id="dev-title-id" required placeholder="super_architect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-amber-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Отображаемое название:</label>
+                <input type="text" id="dev-title-name" required placeholder="Архитектор Будущего" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Иконка (Emoji / Символ):</label>
+                <input type="text" id="dev-title-icon" required value="⚡" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Редкость:</label>
+                <select id="dev-title-rarity" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+                  <option value="common">Обычный (Common)</option>
+                  <option value="rare">Редкий (Rare)</option>
+                  <option value="epic">Эпический (Epic)</option>
+                  <option value="legendary">Легендарный (Legendary)</option>
+                  <option value="mythic">Мифический (Mythic)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Стоимость в ⭐ звездах:</label>
+                <input type="number" id="dev-title-cost" required value="500" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-amber-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-400 mb-1">Описание титула:</label>
+              <input type="text" id="dev-title-desc" required placeholder="Выдающийся специалист по проектированию систем..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Градиент / Цвета (Tailwind):</label>
+                <select id="dev-title-color" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+                  <option value="from-amber-400 to-yellow-500">Золотой градиент (from-amber-400 to-yellow-500)</option>
+                  <option value="from-cyan-400 to-blue-500">Неоново-синий (from-cyan-400 to-blue-500)</option>
+                  <option value="from-purple-400 to-pink-500">Магический фиолетовый (from-purple-400 to-pink-500)</option>
+                  <option value="from-emerald-400 to-teal-500">Изумрудный (from-emerald-400 to-teal-500)</option>
+                  <option value="from-rose-500 to-red-600">Огненно-красный (from-rose-500 to-red-600)</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="dev-title-auto-unlock" checked class="rounded border-slate-700 bg-slate-900 text-amber-500">
+                <label for="dev-title-auto-unlock" class="text-xs text-slate-300 font-semibold cursor-pointer">Сразу открыть и экипировать для Chevels</label>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold hover:opacity-95 shadow-md">
+                Добавить титул в каталог
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- TAB 3: PRACTICE TASKS GENERATOR -->
+        <div id="dev-tab-tasks" class="dev-panel-content-tab hidden space-y-4">
+          <form onsubmit="handleDevCreateTaskSubmit(event)" class="space-y-3 bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i>
+              Добавить новую задачу в Тренажёр
+            </h4>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">ID задачи (англ.):</label>
+                <input type="text" id="dev-task-id" required placeholder="custom_task_1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Название задачи:</label>
+                <input type="text" id="dev-task-title" required placeholder="Например: Проверка палиндрома" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Категория:</label>
+                <select id="dev-task-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-emerald-500">
+                  <option value="algorithms">Алгоритмы и структуры</option>
+                  <option value="patterns">Паттерны проектирования</option>
+                  <option value="fastapi">FastAPI & API</option>
+                  <option value="data">Обработка данных</option>
+                  <option value="concurrency">Асинхронность (asyncio)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Сложность:</label>
+                <select id="dev-task-difficulty" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-emerald-500">
+                  <option value="easy">Лёгкая (Easy)</option>
+                  <option value="medium">Средняя (Medium)</option>
+                  <option value="hard">Сложная (Hard)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Награда XP:</label>
+                <input type="number" id="dev-task-xp" required value="100" min="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Награда ⭐ Звезды:</label>
+                <input type="number" id="dev-task-stars" required value="25" min="5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-400 mb-1">Текст задания (markdown / текст):</label>
+              <textarea id="dev-task-desc" required rows="2" placeholder="Напишите функцию solve(data), которая..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-xs focus:border-emerald-500 resize-none"></textarea>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-400 mb-1">Стартовый код для ученика:</label>
+              <textarea id="dev-task-starter" required rows="3" placeholder="def solution(s: str) -> bool:&#10;    # Напишите код здесь&#10;    pass" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-emerald-300 font-mono text-xs focus:border-emerald-500 resize-none"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Входные данные тестов (опционально):</label>
+                <input type="text" id="dev-task-test-input" placeholder="например: 'radar'" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Ожидаемый вывод / результат:</label>
+                <input type="text" id="dev-task-expected" placeholder="например: True" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold hover:opacity-95 shadow-md">
+                Сохранить и опубликовать задачу
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- TAB 4: IDEAS MODERATION -->
+        <div id="dev-tab-ideas" class="dev-panel-content-tab hidden space-y-4">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+              <i data-lucide="message-square-check" class="w-4 h-4 text-sky-400"></i>
+              Ответ создателя и модерация предложений сообщества
+            </h4>
+
+            <div>
+              <label class="block font-semibold text-slate-400 mb-1">Выберите предложение:</label>
+              <select id="dev-ideas-select" onchange="onDevIdeaSelected()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:border-sky-500">
+                <option value="">-- Загрузка предложений... --</option>
+              </select>
+            </div>
+
+            <div id="dev-selected-idea-preview" class="p-3 bg-slate-900/80 border border-slate-800 rounded-lg hidden space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="dev-idea-author-tag" class="text-[11px] font-bold text-sky-400"></span>
+                <span id="dev-idea-date-tag" class="text-[10px] text-slate-500"></span>
+              </div>
+              <p id="dev-idea-desc-preview" class="text-xs text-slate-300"></p>
+            </div>
+
+            <form onsubmit="handleDevRespondIdeaSubmit(event)" class="space-y-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Статус рассмотрения:</label>
+                <select id="dev-idea-new-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-sky-500">
+                  <option value="in_progress">В разработке (in_progress)</option>
+                  <option value="planned">Запланировано (planned)</option>
+                  <option value="completed">Реализовано (completed)</option>
+                  <option value="under_review">На рассмотрении (under_review)</option>
+                  <option value="declined">Отклонено (declined)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Официальный ответ создателя Chevels:</label>
+                <textarea id="dev-idea-response-text" rows="3" placeholder="Спасибо за отличную идею! Мы добавим это в следующем обновлении..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-xs focus:border-sky-500 resize-none"></textarea>
+              </div>
+
+              <div class="flex justify-end">
+                <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold shadow-md transition">
+                  Опубликовать ответ Создателя
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- TAB 5: ALL USERS LIST -->
+        <div id="dev-tab-users" class="dev-panel-content-tab hidden space-y-4">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i>
+                Зарегистрированные пользователи платформы
+              </h4>
+              <button onclick="loadDevUsersTable()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                <span>Обновить список</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto max-h-72 border border-slate-800 rounded-lg">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase font-bold text-[10px]">
+                    <th class="p-2.5">Пользователь</th>
+                    <th class="p-2.5">Уровень</th>
+                    <th class="p-2.5">⭐ Звёзды</th>
+                    <th class="p-2.5">XP</th>
+                    <th class="p-2.5">Титулов</th>
+                    <th class="p-2.5">Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="dev-users-table-body" class="divide-y divide-slate-850">
+                  <tr>
+                    <td colspan="6" class="p-4 text-center text-slate-500">Загрузка пользователей...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 

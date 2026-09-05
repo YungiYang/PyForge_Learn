@@ -1,0 +1,11 @@
+[
+  {
+    "id": "test_creator_title_999",
+    "name": "Тестовый Титул Бога",
+    "cost_stars": 9999,
+    "rarity": "mythic",
+    "color": "from-amber-400 to-yellow-500",
+    "description": "Эксклюзивный титул для тестов",
+    "icon": "⚡"
+  }
+]

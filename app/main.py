@@ -28,6 +28,8 @@ from .services.auth_service import AuthService
 from .services.leaderboard_service import LeaderboardService
 from .services.forum_service import ForumService
 from .services.ideas_service import IdeasService
+from .services.dev_service import DevService
+from .services.daily_quests_service import DailyQuestsService
 
 app = FastAPI(
     title="PyForge: Ultimate Python App Studio & Knowledge Hub",
@@ -43,13 +45,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def extract_token(authorization: Optional[str] = None, token_param: Optional[str] = None) -> Optional[str]:
-    if authorization:
+def extract_token(authorization: Any = None, token_param: Optional[str] = None) -> Optional[str]:
+    if isinstance(authorization, str) and authorization.strip():
         clean = authorization.strip()
         if clean.lower().startswith("bearer "):
             return clean[7:].strip()
         return clean
-    return token_param
+    if isinstance(token_param, str) and token_param.strip():
+        return token_param.strip()
+    return None
 
 # Pydantic модели запросов
 class RunCodeRequest(BaseModel):
@@ -137,6 +141,53 @@ class CreateIdeaRequest(BaseModel):
 class VoteIdeaRequest(BaseModel):
     idea_id: str
 
+class DevSetStarsRequest(BaseModel):
+    username: Optional[str] = None
+    amount: Optional[int] = None
+    exact_amount: Optional[int] = None
+    mode: Optional[str] = None
+
+class DevCreateTitleRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    cost_stars: Optional[int] = 0
+    rarity: Optional[str] = "Legendary"
+    color: Optional[str] = None
+    color_class: Optional[str] = None
+    description: Optional[str] = ""
+    icon: Optional[str] = "shield"
+    unlock_now: Optional[bool] = True
+    auto_unlock_for_creator: Optional[bool] = True
+    set_active: Optional[bool] = False
+
+class DevDeleteTitleRequest(BaseModel):
+    title_id: str
+
+class DevCreateTaskRequest(BaseModel):
+    id: Optional[str] = None
+    title: str
+    difficulty: Optional[str] = "easy"
+    category: Optional[str] = "algorithms"
+    xp_reward: Optional[int] = 100
+    reward_stars: Optional[int] = 30
+    stars_reward: Optional[int] = None
+    description: str
+    starter_code: Optional[str] = "def solution():\n    pass\n"
+    entry_point: Optional[str] = "solution"
+    test_cases: Optional[List[Dict[str, Any]]] = None
+
+class DevDeleteTaskRequest(BaseModel):
+    task_id: str
+
+class DevRespondIdeaRequest(BaseModel):
+    idea_id: str
+    status: str
+    dev_response: str
+
+class ClaimQuestRequest(BaseModel):
+    quest_id: str
+
+
 # --- AUTH & USER PROFILE ---
 
 @app.post("/api/auth/register")
@@ -184,6 +235,104 @@ async def auth_update_profile(req: UpdateProfileRequest, authorization: Optional
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# --- DEV PANEL (CREATOR CHEVELS ONLY) ---
+
+@app.post("/api/dev/stars")
+@app.post("/api/dev/stars/modify")
+async def dev_set_stars(req: DevSetStarsRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        if req.exact_amount is not None:
+            amt = req.exact_amount
+            mode = "set"
+        elif req.amount is not None:
+            amt = req.amount
+            mode = req.mode or "add"
+        else:
+            amt = 0
+            mode = "set"
+        return DevService.set_user_stars(t, req.username, amt, mode)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/titles/create")
+async def dev_create_title(req: DevCreateTitleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        data = req.model_dump()
+        if req.color_class and not req.color:
+            data["color"] = req.color_class
+        if req.auto_unlock_for_creator is not None:
+            data["unlock_now"] = req.auto_unlock_for_creator
+        return DevService.create_custom_title(t, data)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/titles/delete")
+async def dev_delete_title(req: DevDeleteTitleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.delete_title(t, req.title_id)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/tasks/create")
+async def dev_create_task(req: DevCreateTaskRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        data = req.model_dump()
+        if req.stars_reward is not None:
+            data["reward_stars"] = req.stars_reward
+        return DevService.create_custom_task(t, data)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/ideas/respond")
+@app.post("/api/dev/ideas/status")
+async def dev_respond_idea(req: DevRespondIdeaRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.respond_to_idea(t, req.idea_id, req.status, req.dev_response)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/dev/users")
+async def dev_list_users(authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.list_users_admin(t)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# --- DAILY QUESTS ---
+
+@app.get("/api/quests/daily")
+async def get_daily_quests_endpoint(authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    return DailyQuestsService.get_daily_quests(t)
+
+@app.post("/api/quests/claim")
+async def claim_quest_reward_endpoint(req: ClaimQuestRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    if not t:
+        raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
+    try:
+        return DailyQuestsService.claim_reward(t, req.quest_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 # --- LEADERBOARD ---
 
 @app.get("/api/leaderboard")
@@ -216,13 +365,19 @@ async def create_forum_topic(req: CreateTopicRequest, authorization: Optional[st
     user = AuthService.get_user_by_token(t)
     username = user["username"] if user else "Аноним"
     try:
-        return ForumService.create_topic(
+        topic = ForumService.create_topic(
             title=req.title,
             category=req.category,
             content=req.content,
             author_username=username,
             tags=req.tags
         )
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "community_action")
+            except Exception:
+                pass
+        return topic
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -232,11 +387,17 @@ async def add_forum_comment(req: AddCommentRequest, authorization: Optional[str]
     user = AuthService.get_user_by_token(t)
     username = user["username"] if user else "Аноним"
     try:
-        return ForumService.add_comment(
+        comm = ForumService.add_comment(
             topic_id=req.topic_id,
             content=req.content,
             author_username=username
         )
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "community_action")
+            except Exception:
+                pass
+        return comm
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -246,7 +407,13 @@ async def upvote_forum_topic(req: UpvoteTopicRequest, authorization: Optional[st
     user = AuthService.get_user_by_token(t)
     username = user["username"] if user else "guest_user"
     try:
-        return ForumService.upvote_topic(req.topic_id, username)
+        res = ForumService.upvote_topic(req.topic_id, username)
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "community_action")
+            except Exception:
+                pass
+        return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -262,12 +429,18 @@ async def create_idea(req: CreateIdeaRequest, authorization: Optional[str] = Hea
     user = AuthService.get_user_by_token(t)
     username = user["username"] if user else "Аноним"
     try:
-        return IdeasService.submit_idea(
+        idea = IdeasService.submit_idea(
             title=req.title,
             description=req.description,
             category=req.category or "general",
             author_username=username
         )
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "community_action")
+            except Exception:
+                pass
+        return idea
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -277,7 +450,13 @@ async def vote_idea(req: VoteIdeaRequest, authorization: Optional[str] = Header(
     user = AuthService.get_user_by_token(t)
     username = user["username"] if user else "guest_user"
     try:
-        return IdeasService.vote_idea(req.idea_id, username)
+        res = IdeasService.vote_idea(req.idea_id, username)
+        if t and res.get("has_voted"):
+            try:
+                DailyQuestsService.record_activity(t, "community_action")
+            except Exception:
+                pass
+        return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -423,21 +602,33 @@ async def get_template_detail(template_id: str):
     return template
 
 @app.post("/api/scaffold/directory")
-async def generate_to_directory(req: GenerateDirectoryRequest):
+async def generate_to_directory(req: GenerateDirectoryRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
     try:
         result = ScaffolderService.generate_to_directory(
             template_id=req.template_id,
             target_dir=req.target_directory,
             project_name=req.project_name
         )
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "scaffold_project")
+            except Exception:
+                pass
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/scaffold/download/{template_id}")
-async def download_zip(template_id: str, project_name: Optional[str] = "my_python_app"):
+async def download_zip(template_id: str, project_name: Optional[str] = "my_python_app", authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
     try:
         zip_buffer = ScaffolderService.generate_zip_bytes(template_id, project_name)
+        if t:
+            try:
+                DailyQuestsService.record_activity(t, "scaffold_project")
+            except Exception:
+                pass
         return Response(
             content=zip_buffer.getvalue(),
             media_type="application/zip",
@@ -447,8 +638,15 @@ async def download_zip(template_id: str, project_name: Optional[str] = "my_pytho
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/sandbox/run")
-async def run_sandbox_code(req: RunCodeRequest):
-    return SandboxService.run_code(req.code, req.timeout or 5.0)
+async def run_sandbox_code(req: RunCodeRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    res = SandboxService.run_code(req.code, req.timeout or 5.0)
+    if t and res.get("success"):
+        try:
+            DailyQuestsService.record_activity(t, "run_sandbox")
+        except Exception:
+            pass
+    return res
 
 @app.get("/api/search")
 async def search_all(q: str = Query(..., min_length=2)):

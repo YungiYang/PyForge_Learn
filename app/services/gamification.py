@@ -5,7 +5,7 @@
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from ..data.titles_catalog import TITLES_CATALOG
+from ..data.titles_catalog import TITLES_CATALOG, get_all_titles
 
 PROFILE_FILE = Path(__file__).resolve().parent.parent / "data" / "user_profile.json"
 
@@ -67,14 +67,15 @@ class GamificationService:
     @classmethod
     def get_full_profile(cls, user_key_or_token: Optional[str] = None) -> Dict[str, Any]:
         profile = cls._load_profile(user_key_or_token)
+        all_titles = get_all_titles()
         active_title_id = profile.get("active_title_id", "title_novice")
-        active_title = next((t for t in TITLES_CATALOG if t["id"] == active_title_id), TITLES_CATALOG[0])
+        active_title = next((t for t in all_titles if t["id"] == active_title_id), all_titles[0])
         unlocked = profile.get("unlocked_titles", ["title_novice"])
         stars = profile.get("stars", 0)
 
         # Build titles shop with ownership status
         shop_titles = []
-        for t in TITLES_CATALOG:
+        for t in all_titles:
             is_unlocked = t["id"] in unlocked
             is_active = t["id"] == active_title_id
             can_afford = stars >= t["cost_stars"]
@@ -125,7 +126,8 @@ class GamificationService:
     @classmethod
     def buy_title(cls, title_id: str, user_key_or_token: Optional[str] = None) -> Dict[str, Any]:
         profile = cls._load_profile(user_key_or_token)
-        title = next((t for t in TITLES_CATALOG if t["id"] == title_id), None)
+        all_titles = get_all_titles()
+        title = next((t for t in all_titles if t["id"] == title_id), None)
         if not title:
             raise ValueError("Титул не найден")
 

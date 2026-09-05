@@ -76,3 +76,60 @@ TITLES_CATALOG = [
         "icon": "crown"
     }
 ]
+
+import json
+from pathlib import Path
+
+CUSTOM_TITLES_FILE = Path(__file__).resolve().parent / "custom_titles.json"
+
+def get_all_titles():
+    """Возвращает список всех титулов (базовые + созданные создателем)"""
+    titles = list(TITLES_CATALOG)
+    if CUSTOM_TITLES_FILE.exists():
+        try:
+            with open(CUSTOM_TITLES_FILE, "r", encoding="utf-8") as f:
+                custom_list = json.load(f)
+                if isinstance(custom_list, list):
+                    titles.extend(custom_list)
+        except Exception:
+            pass
+    return titles
+
+def save_custom_title(title_dict: dict) -> dict:
+    """Сохраняет новый кастомный титул"""
+    custom_list = []
+    if CUSTOM_TITLES_FILE.exists():
+        try:
+            with open(CUSTOM_TITLES_FILE, "r", encoding="utf-8") as f:
+                custom_list = json.load(f)
+                if not isinstance(custom_list, list):
+                    custom_list = []
+        except Exception:
+            custom_list = []
+
+    # Check if id exists, replace or append
+    existing_idx = next((i for i, t in enumerate(custom_list) if t["id"] == title_dict["id"]), None)
+    if existing_idx is not None:
+        custom_list[existing_idx] = title_dict
+    else:
+        custom_list.append(title_dict)
+
+    CUSTOM_TITLES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(CUSTOM_TITLES_FILE, "w", encoding="utf-8") as f:
+        json.dump(custom_list, f, ensure_ascii=False, indent=2)
+
+    return title_dict
+
+def delete_custom_title(title_id: str) -> bool:
+    """Удаляет кастомный титул"""
+    if not CUSTOM_TITLES_FILE.exists():
+        return False
+    try:
+        with open(CUSTOM_TITLES_FILE, "r", encoding="utf-8") as f:
+            custom_list = json.load(f)
+        filtered = [t for t in custom_list if t["id"] != title_id]
+        with open(CUSTOM_TITLES_FILE, "w", encoding="utf-8") as f:
+            json.dump(filtered, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
