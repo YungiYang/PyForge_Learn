@@ -1983,6 +1983,162 @@ async function logoutUser() {
 
 // --- PROFILE SETTINGS & AVATAR STUDIO MODAL ---
 
+let currentAvatarMode = 'upload'; // 'upload' | 'preset' | 'url'
+let currentAvatarStyle = 'bottts';
+let currentAvatarSeed = '';
+let currentCustomAvatarData = null; // Base64 Data URL or direct image URL
+
+function setAvatarMode(mode) {
+  currentAvatarMode = mode;
+
+  // Buttons
+  const uploadBtn = document.getElementById('avatar-mode-upload-btn');
+  const presetBtn = document.getElementById('avatar-mode-preset-btn');
+  const urlBtn = document.getElementById('avatar-mode-url-btn');
+
+  const tabUpload = document.getElementById('avatar-tab-upload');
+  const tabPreset = document.getElementById('avatar-tab-preset');
+  const tabUrl = document.getElementById('avatar-tab-url');
+
+  if (uploadBtn) uploadBtn.className = mode === 'upload' ? 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-sky-600 text-white shadow-sm transition flex items-center gap-1' : 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-1';
+  if (presetBtn) presetBtn.className = mode === 'preset' ? 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-sky-600 text-white shadow-sm transition flex items-center gap-1' : 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-1';
+  if (urlBtn) urlBtn.className = mode === 'url' ? 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-sky-600 text-white shadow-sm transition flex items-center gap-1' : 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-transparent text-slate-400 hover:text-slate-200 transition flex items-center gap-1';
+
+  // Tabs
+  if (tabUpload) tabUpload.classList.toggle('hidden', mode !== 'upload');
+  if (tabPreset) tabPreset.classList.toggle('hidden', mode !== 'preset');
+  if (tabUrl) tabUrl.classList.toggle('hidden', mode !== 'url');
+
+  // Update preview according to selected mode
+  if (mode === 'upload') {
+    if (currentCustomAvatarData) {
+      updateAvatarPreview(currentCustomAvatarData);
+    } else {
+      updateAvatarPreview(currentUser?.avatar || buildAvatarUrl('bottts', currentUser?.username || 'user'));
+    }
+  } else if (mode === 'preset') {
+    const seed = document.getElementById('profile-avatar-seed-input')?.value.trim() || currentAvatarSeed || currentUser?.username || 'user';
+    updateAvatarPreview(buildAvatarUrl(currentAvatarStyle, seed));
+  } else if (mode === 'url') {
+    const url = document.getElementById('profile-avatar-url-input')?.value.trim();
+    if (url) {
+      updateAvatarPreview(url);
+    }
+  }
+  lucide.createIcons();
+}
+
+function handleAvatarFileSelect(event) {
+  const file = event.target.files && event.target.files[0];
+  if (file) {
+    processAvatarFile(file);
+  }
+}
+
+function processAvatarFile(file) {
+  if (!file.type.startsWith('image/')) {
+    alert('Пожалуйста, выберите файл изображения (PNG, JPG, WEBP, GIF)');
+    return;
+  }
+
+  // Max 5MB raw
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Размер файла превышает 5 МБ. Пожалуйста, выберите файл меньшего размера.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const rawDataUrl = e.target.result;
+    const img = new Image();
+    img.onload = function() {
+      // Resize to max 256x256 for fast transmission and lightweight storage
+      const maxDim = 256;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const resizedDataUrl = canvas.toDataURL(mimeType, 0.92);
+
+      currentCustomAvatarData = resizedDataUrl;
+      updateAvatarPreview(resizedDataUrl);
+
+      // Show info box
+      const infoBox = document.getElementById('avatar-upload-info-box');
+      const nameLabel = document.getElementById('avatar-filename-label');
+      if (infoBox && nameLabel) {
+        nameLabel.innerText = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+        infoBox.classList.remove('hidden');
+      }
+
+      setAvatarMode('upload');
+      showToast('Фото успешно выбрано! Нажмите «Сохранить» 📷');
+      lucide.createIcons();
+    };
+    img.src = rawDataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearUploadedAvatar() {
+  currentCustomAvatarData = null;
+  const fileInput = document.getElementById('avatar-file-input');
+  if (fileInput) fileInput.value = '';
+  const infoBox = document.getElementById('avatar-upload-info-box');
+  if (infoBox) infoBox.classList.add('hidden');
+
+  const fallback = buildAvatarUrl(currentAvatarStyle, currentUser?.username || 'user');
+  updateAvatarPreview(fallback);
+  showToast('Пользовательское фото очищено');
+}
+
+function setupAvatarDragAndDrop() {
+  const dropzone = document.getElementById('avatar-dropzone');
+  if (!dropzone) return;
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('border-sky-500', 'bg-sky-500/10');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('border-sky-500', 'bg-sky-500/10');
+    }, false);
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files && files.length > 0) {
+      processAvatarFile(files[0]);
+    }
+  }, false);
+}
+
 function openProfileModal() {
   if (!currentUser) {
     openAuthModal('login');
@@ -2020,27 +2176,41 @@ function openProfileModal() {
   document.getElementById('profile-bio-input').value = currentUser.bio || '';
   document.getElementById('profile-new-password').value = '';
 
-  // Parse current avatar
+  // Initialize Avatar Mode & Values based on current avatar
   currentAvatarSeed = currentUser.username;
-  if (avatar.startsWith('http')) {
-    if (avatar.includes('api.dicebear.com')) {
-      const match = avatar.match(/\/7\.x\/([a-z\-]+)\/svg\?seed=([^&]+)/);
-      if (match) {
-        currentAvatarStyle = match[1];
-        currentAvatarSeed = decodeURIComponent(match[2]);
-        document.getElementById('profile-avatar-input').value = currentAvatarSeed;
-      } else {
-        document.getElementById('profile-avatar-input').value = avatar;
-      }
-    } else {
-      document.getElementById('profile-avatar-input').value = avatar;
+  const infoBox = document.getElementById('avatar-upload-info-box');
+  const nameLabel = document.getElementById('avatar-filename-label');
+
+  if (avatar.startsWith('data:image/')) {
+    currentCustomAvatarData = avatar;
+    if (infoBox && nameLabel) {
+      nameLabel.innerText = 'Загруженное фото профиля ✅';
+      infoBox.classList.remove('hidden');
     }
+    setAvatarMode('upload');
+  } else if (avatar.includes('api.dicebear.com')) {
+    const match = avatar.match(/\/7\.x\/([a-z\-]+)\/svg\?seed=([^&]+)/);
+    if (match) {
+      currentAvatarStyle = match[1];
+      currentAvatarSeed = decodeURIComponent(match[2]);
+    }
+    document.getElementById('profile-avatar-seed-input').value = currentAvatarSeed;
+    highlightAvatarStyleButton(currentAvatarStyle);
+    if (infoBox) infoBox.classList.add('hidden');
+    setAvatarMode('preset');
+  } else if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    document.getElementById('profile-avatar-url-input').value = avatar;
+    if (infoBox) infoBox.classList.add('hidden');
+    setAvatarMode('url');
   } else {
-    document.getElementById('profile-avatar-input').value = avatar;
+    currentCustomAvatarData = null;
+    if (infoBox) infoBox.classList.add('hidden');
+    setAvatarMode('upload');
   }
 
   highlightAvatarStyleButton(currentAvatarStyle);
   populateProfileTitleSelect();
+  setupAvatarDragAndDrop();
 
   modal.classList.remove('hidden');
   lucide.createIcons();
@@ -2065,37 +2235,47 @@ function highlightAvatarStyleButton(style) {
 function selectAvatarStyle(style) {
   currentAvatarStyle = style;
   highlightAvatarStyleButton(style);
-  const inputVal = document.getElementById('profile-avatar-input').value.trim();
+  const inputVal = document.getElementById('profile-avatar-seed-input')?.value.trim();
   const newUrl = buildAvatarUrl(currentAvatarStyle, inputVal || currentUser?.username || 'user');
   updateAvatarPreview(newUrl);
 }
 
 function randomizeAvatar() {
-  const randomSeeds = ['CyberPy', 'Pythonista', 'AsyncMaster', 'ByteCoder', 'DevWizard', 'QuantumPy', 'CodeAlchemist', 'FastDev', 'SnakeHero', 'TurboPython'];
+  const randomSeeds = ['CyberPy', 'Pythonista', 'AsyncMaster', 'ByteCoder', 'DevWizard', 'QuantumPy', 'CodeAlchemist', 'FastDev', 'SnakeHero', 'TurboPython', 'DevKing', 'ShadowCoder'];
   const randNum = Math.floor(Math.random() * 9000) + 1000;
   const pickedSeed = randomSeeds[Math.floor(Math.random() * randomSeeds.length)] + '_' + randNum;
   currentAvatarSeed = pickedSeed;
-  document.getElementById('profile-avatar-input').value = pickedSeed;
+  const seedInput = document.getElementById('profile-avatar-seed-input');
+  if (seedInput) seedInput.value = pickedSeed;
   const newUrl = buildAvatarUrl(currentAvatarStyle, pickedSeed);
+  updateAvatarPreview(newUrl);
+  setAvatarMode('preset');
+}
+
+function onAvatarSeedChange(val) {
+  currentAvatarSeed = val.trim();
+  const newUrl = buildAvatarUrl(currentAvatarStyle, currentAvatarSeed || currentUser?.username || 'user');
   updateAvatarPreview(newUrl);
 }
 
-function onAvatarInputChange(val) {
+function onAvatarUrlInputChange(val) {
   const clean = val.trim();
-  const newUrl = buildAvatarUrl(currentAvatarStyle, clean || currentUser?.username || 'user');
-  updateAvatarPreview(newUrl);
+  if (clean) {
+    updateAvatarPreview(clean);
+  }
 }
 
 function buildAvatarUrl(style, seedOrUrl) {
-  if (seedOrUrl.startsWith('http://') || seedOrUrl.startsWith('https://')) {
+  if (!seedOrUrl) return `https://api.dicebear.com/7.x/${style || 'bottts'}/svg?seed=user`;
+  if (seedOrUrl.startsWith('http://') || seedOrUrl.startsWith('https://') || seedOrUrl.startsWith('data:image/')) {
     return seedOrUrl;
   }
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seedOrUrl)}`;
+  return `https://api.dicebear.com/7.x/${style || 'bottts'}/svg?seed=${encodeURIComponent(seedOrUrl)}`;
 }
 
 function updateAvatarPreview(url) {
   const img = document.getElementById('profile-modal-avatar-preview');
-  if (img) img.src = url;
+  if (img && url) img.src = url;
 }
 
 function populateProfileTitleSelect() {
@@ -2145,7 +2325,6 @@ async function onProfileTitleChange(titleId) {
 async function handleSaveProfileSubmit(event) {
   event.preventDefault();
   const displayName = document.getElementById('profile-displayname-input').value.trim();
-  const inputAvatar = document.getElementById('profile-avatar-input').value.trim();
   const bio = document.getElementById('profile-bio-input').value.trim();
   const newPassword = document.getElementById('profile-new-password').value.trim();
   const errBox = document.getElementById('profile-error-box');
@@ -2156,7 +2335,16 @@ async function handleSaveProfileSubmit(event) {
   if (errBox) errBox.classList.add('hidden');
   if (okBox) okBox.classList.add('hidden');
 
-  const avatarUrl = buildAvatarUrl(currentAvatarStyle, inputAvatar || currentUser?.username || 'user');
+  let finalAvatar = null;
+  if (currentAvatarMode === 'upload') {
+    finalAvatar = currentCustomAvatarData || currentUser?.avatar || buildAvatarUrl('bottts', currentUser?.username || 'user');
+  } else if (currentAvatarMode === 'url') {
+    const urlVal = document.getElementById('profile-avatar-url-input')?.value.trim();
+    finalAvatar = urlVal || currentUser?.avatar || buildAvatarUrl('bottts', currentUser?.username || 'user');
+  } else {
+    const seedVal = document.getElementById('profile-avatar-seed-input')?.value.trim();
+    finalAvatar = buildAvatarUrl(currentAvatarStyle, seedVal || currentUser?.username || 'user');
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Сохранение...</span>';
@@ -2165,7 +2353,7 @@ async function handleSaveProfileSubmit(event) {
   try {
     const bodyPayload = {
       display_name: displayName,
-      avatar: avatarUrl,
+      avatar: finalAvatar,
       bio: bio
     };
     if (newPassword) {
@@ -2195,6 +2383,8 @@ async function handleSaveProfileSubmit(event) {
     showToast('Профиль и аватар успешно сохранены! 🎉');
 
     if (currentTab === 'leaderboard') loadLeaderboard();
+    if (currentTab === 'forum') loadForumTopics();
+    if (currentTab === 'ideas') loadIdeas();
 
     setTimeout(() => {
       closeProfileModal();
