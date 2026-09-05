@@ -49,30 +49,51 @@
 <body class="bg-[#090d16] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-sky-500 selection:text-white">
 
   <!-- TOP APP HEADER -->
-  <header class="h-16 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-        <i data-lucide="layers" class="w-6 h-6 text-white"></i>
-      </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="font-bold text-lg tracking-tight text-white">PyForge</h1>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-medium border border-sky-500/20">Python 3.12-3.13</span>
+  <header class="h-16 border-b border-slate-800 bg-[#0f172a]/90 backdrop-blur-md sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between gap-4">
+    <div class="flex items-center space-x-4 md:space-x-6">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('scaffolder')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 flex-shrink-0">
+          <i data-lucide="layers" class="w-6 h-6 text-white"></i>
         </div>
-        <p class="text-xs text-slate-400">Интерактивный справочник & Конструктор приложений</p>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-lg tracking-tight text-white">PyForge</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-medium border border-sky-500/20">3.12-3.13</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden xl:block">Интерактивный справочник & Конструктор</p>
+        </div>
       </div>
+
+      <!-- TOP NAVIGATION BUTTONS (Leaderboard, Forum, Ideas) -->
+      <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+        <button onclick="switchTab('leaderboard')" id="top-nav-leaderboard" class="top-nav-btn flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-amber-400 hover:bg-slate-800/80 transition">
+          <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Лидерборд</span>
+          <span class="hidden md:inline-block text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold ml-1">ТОП</span>
+        </button>
+
+        <button onclick="switchTab('forum')" id="top-nav-forum" class="top-nav-btn flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-sky-400 hover:bg-slate-800/80 transition">
+          <i data-lucide="messages-square" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>Форум</span>
+        </button>
+
+        <button onclick="switchTab('ideas')" id="top-nav-ideas" class="top-nav-btn flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-yellow-400 hover:bg-slate-800/80 transition">
+          <i data-lucide="lightbulb" class="w-3.5 h-3.5 text-yellow-400"></i>
+          <span>Идеи</span>
+        </button>
+      </nav>
     </div>
 
     <!-- User Profile & Quick Search Bar -->
-    <div class="flex items-center space-x-3">
+    <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
       <!-- Stars and Title Widget -->
-      <button onclick="openTitleShopModal()" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-amber-500/30 text-xs transition shadow-sm group">
+      <button onclick="openTitleShopModal()" class="flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-amber-500/30 text-xs transition shadow-sm group">
         <span class="flex items-center gap-1 font-bold text-amber-400">
           <i data-lucide="star" class="w-4 h-4 fill-amber-400 text-amber-400"></i>
           <span id="header-stars-count">0</span> ⭐
         </span>
-        <span class="text-slate-600">|</span>
-        <span id="header-active-title" class="font-medium text-slate-300 group-hover:text-white transition">🐍 Начинающий Змеелов</span>
+        <span class="text-slate-600 hidden sm:inline">|</span>
+        <span id="header-active-title" class="font-medium text-slate-300 group-hover:text-white transition hidden md:inline">🐍 Начинающий Змеелов</span>
         <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">Магазин</span>
       </button>
 
@@ -116,26 +137,6 @@
           <i data-lucide="terminal" class="w-4 h-4 text-sky-400"></i>
           <span class="font-medium text-sky-300">Интеграция с VS Code</span>
           <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">Bridge</span>
-        </button>
-
-        <div class="pt-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Сообщество & Рейтинг</div>
-
-        <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
-          <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i>
-          <span class="font-semibold text-amber-300">Таблица лидеров</span>
-          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">ТОП</span>
-        </button>
-
-        <button onclick="switchTab('forum')" id="nav-forum" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
-          <i data-lucide="messages-square" class="w-4 h-4 text-sky-400"></i>
-          <span class="font-medium text-sky-300">Форум сообщества</span>
-          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">Live</span>
-        </button>
-
-        <button onclick="switchTab('ideas')" id="nav-ideas" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
-          <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-400"></i>
-          <span class="font-medium text-yellow-300">Идеи для создателей</span>
-          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold">Vote</span>
         </button>
 
         <div class="pt-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">База знаний & Код</div>

@@ -12,61 +12,8 @@ from typing import Dict, Any, List, Optional
 USERS_DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "users.json"
 SESSIONS_DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "sessions.json"
 
-# Начальные демо-пользователи для живой таблицы лидеров
-INITIAL_DEMO_USERS = [
-    {
-        "id": "user_alex_dev",
-        "username": "AlexPy",
-        "display_name": "Алексей Pythonist",
-        "password_hash": hashlib.sha256("demo123".encode()).hexdigest(),
-        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=AlexPy",
-        "stars": 480,
-        "total_earned_stars": 480,
-        "active_title_id": "title_architect",
-        "unlocked_titles": ["title_novice", "title_lists", "title_dict", "title_oop", "title_async", "title_bug_hunter", "title_architect"],
-        "solved_tasks": ["task_palindrome", "task_word_frequency", "task_chunk_list", "task_timing_decorator", "task_validate_email", "task_async_rate_limiter", "task_lru_cache_impl"],
-        "created_at": "2026-08-15T10:00:00Z"
-    },
-    {
-        "id": "user_elena_code",
-        "username": "ElenaCode",
-        "display_name": "Елена (Async Dev)",
-        "password_hash": hashlib.sha256("demo123".encode()).hexdigest(),
-        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=ElenaCode",
-        "stars": 320,
-        "total_earned_stars": 320,
-        "active_title_id": "title_async",
-        "unlocked_titles": ["title_novice", "title_lists", "title_dict", "title_oop", "title_async"],
-        "solved_tasks": ["task_palindrome", "task_word_frequency", "task_timing_decorator", "task_validate_email", "task_async_rate_limiter"],
-        "created_at": "2026-08-20T14:30:00Z"
-    },
-    {
-        "id": "user_dmitry_pro",
-        "username": "DmitryPro",
-        "display_name": "Дмитрий В.",
-        "password_hash": hashlib.sha256("demo123".encode()).hexdigest(),
-        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=DmitryPro",
-        "stars": 195,
-        "total_earned_stars": 195,
-        "active_title_id": "title_oop",
-        "unlocked_titles": ["title_novice", "title_lists", "title_dict", "title_oop"],
-        "solved_tasks": ["task_palindrome", "task_word_frequency", "task_chunk_list", "task_timing_decorator"],
-        "created_at": "2026-08-25T18:00:00Z"
-    },
-    {
-        "id": "user_olga_ai",
-        "username": "OlgaAI",
-        "display_name": "Ольга Нейросети",
-        "password_hash": hashlib.sha256("demo123".encode()).hexdigest(),
-        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=OlgaAI",
-        "stars": 110,
-        "total_earned_stars": 110,
-        "active_title_id": "title_dict",
-        "unlocked_titles": ["title_novice", "title_lists", "title_dict"],
-        "solved_tasks": ["task_palindrome", "task_word_frequency", "task_chunk_list"],
-        "created_at": "2026-08-30T11:20:00Z"
-    }
-]
+# Начальные пользователи (пустой список для чистой базы)
+INITIAL_DEMO_USERS = []
 
 class AuthService:
     @classmethod

@@ -283,11 +283,15 @@ class TestPyForge(unittest.TestCase):
     def test_leaderboard_service(self):
         from app.services.leaderboard_service import LeaderboardService
         from app.services.auth_service import AuthService
+        import time
 
-        leaderboard = LeaderboardService.get_leaderboard(current_username="AlexPy")
+        uname = f"lb_user_{int(time.time())}"
+        AuthService.register(uname, "password123", "Leaderboard Tester")
+
+        leaderboard = LeaderboardService.get_leaderboard(current_username=uname)
         self.assertTrue(leaderboard["success"])
-        self.assertGreaterEqual(leaderboard["total_players"], 3)
-        self.assertGreaterEqual(len(leaderboard["top_3"]), 1)
+        self.assertGreaterEqual(leaderboard["total_players"], 1)
+        self.assertGreaterEqual(len(leaderboard["rankings"]), 1)
         self.assertEqual(leaderboard["rankings"][0]["rank"], 1)
 
         # Check ranking order (descending by stars)
@@ -296,29 +300,36 @@ class TestPyForge(unittest.TestCase):
 
         # Check current user rank info
         self.assertIsNotNone(leaderboard["current_user_rank"])
-        self.assertEqual(leaderboard["current_user_rank"]["username"], "AlexPy")
+        self.assertEqual(leaderboard["current_user_rank"]["username"], uname)
 
     def test_forum_service(self):
         from app.services.forum_service import ForumService
+        from app.services.auth_service import AuthService
+        import time
+
+        u_author = f"author_{int(time.time())}"
+        u_commenter = f"comm_{int(time.time())}"
+        AuthService.register(u_author, "password123", "Author Dev")
+        AuthService.register(u_commenter, "password123", "Commenter Dev")
 
         # 1. Categories
         cats = ForumService.get_categories()
         self.assertGreaterEqual(len(cats), 5)
 
-        # 2. List topics
-        topics = ForumService.list_topics(category="web")
-        self.assertGreaterEqual(len(topics), 1)
-
-        # 3. Create new topic
+        # 2. Create new topic
         new_topic = ForumService.create_topic(
             title="Тестовый вопрос по FastAPI и Asyncio",
             category="web",
             content="Как настроить middleware для проверки токенов?",
-            author_username="AlexPy",
+            author_username=u_author,
             tags=["fastapi", "test"]
         )
         self.assertIn("topic_", new_topic["id"])
         self.assertEqual(new_topic["category"], "web")
+
+        # 3. List topics
+        topics = ForumService.list_topics(category="web")
+        self.assertGreaterEqual(len(topics), 1)
 
         # 4. Get topic details (increases views)
         topic_detail = ForumService.get_topic(new_topic["id"])
@@ -329,39 +340,46 @@ class TestPyForge(unittest.TestCase):
         comment = ForumService.add_comment(
             topic_id=new_topic["id"],
             content="Используйте `Depends` или `HTTPBearer`!",
-            author_username="ElenaCode"
+            author_username=u_commenter
         )
         self.assertIn("comm_", comment["id"])
 
         # 6. Upvote topic
-        upvote_res = ForumService.upvote_topic(new_topic["id"], "ElenaCode")
+        upvote_res = ForumService.upvote_topic(new_topic["id"], u_commenter)
         self.assertTrue(upvote_res["success"])
         self.assertTrue(upvote_res["voted"])
 
     def test_ideas_service(self):
         from app.services.ideas_service import IdeasService
+        from app.services.auth_service import AuthService
+        import time
 
-        # 1. List ideas
-        ideas = IdeasService.list_ideas(status="all", sort_by="popular")
-        self.assertGreaterEqual(len(ideas), 2)
+        u_idea = f"idea_user_{int(time.time())}"
+        u_voter = f"voter_{int(time.time())}"
+        AuthService.register(u_idea, "password123", "Idea Creator")
+        AuthService.register(u_voter, "password123", "Voter")
 
-        # 2. Submit new idea
+        # 1. Submit new idea
         new_idea = IdeasService.submit_idea(
             title="Интеграция с GitHub Gist",
             description="Возможность экспортировать сниппеты прямо в свой аккаунт GitHub Gist.",
             category="tools",
-            author_username="AlexPy"
+            author_username=u_idea
         )
         self.assertIn("idea_", new_idea["id"])
         self.assertEqual(new_idea["status"], "under_review")
 
+        # 2. List ideas
+        ideas = IdeasService.list_ideas(status="all", sort_by="popular")
+        self.assertGreaterEqual(len(ideas), 1)
+
         # 3. Vote for idea
-        vote_res = IdeasService.vote_idea(new_idea["id"], "ElenaCode")
+        vote_res = IdeasService.vote_idea(new_idea["id"], u_voter)
         self.assertTrue(vote_res["success"])
         self.assertTrue(vote_res["has_voted"])
 
         # 4. Toggle vote off
-        unvote_res = IdeasService.vote_idea(new_idea["id"], "ElenaCode")
+        unvote_res = IdeasService.vote_idea(new_idea["id"], u_voter)
         self.assertTrue(unvote_res["success"])
         self.assertFalse(unvote_res["has_voted"])
 
@@ -464,14 +482,14 @@ class TestPyForge(unittest.TestCase):
         upv_res = asyncio.run(upvote_forum_topic(upv_dto, authorization=f"Bearer {token}"))
         self.assertTrue(upv_res["success"])
 
-        # 9. List Ideas API
-        ideas = asyncio.run(list_ideas(category="all", status="all", sort_by="popular"))
-        self.assertGreater(len(ideas), 0)
-
-        # 10. Create Idea API
+        # 9. Create Idea API
         idea_dto = CreateIdeaRequest(title="Новая фича в конструктор", description="Подробности идеи", category="general")
         created_idea = asyncio.run(create_idea(idea_dto, authorization=f"Bearer {token}"))
         self.assertIn("idea_", created_idea["id"])
+
+        # 10. List Ideas API
+        ideas = asyncio.run(list_ideas(category="all", status="all", sort_by="popular"))
+        self.assertGreater(len(ideas), 0)
 
         # 11. Vote Idea API
         vote_dto = VoteIdeaRequest(idea_id=created_idea["id"])

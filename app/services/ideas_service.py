@@ -11,68 +11,8 @@ from .auth_service import AuthService
 
 IDEAS_DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "ideas_data.json"
 
-INITIAL_IDEAS = [
-    {
-        "id": "idea_1",
-        "title": "Добавить рандомизатор задач по библиотекам (Kivy, FastAPI, Re, Pandas)",
-        "description": "Было бы круто выбирать библиотеку и получать уникальные практические задачи с авто-тестами и наградами в звездах!",
-        "category": "practice",
-        "author_username": "AlexPy",
-        "author_display_name": "Алексей Pythonist",
-        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=AlexPy",
-        "status": "completed",
-        "status_label": "✅ Реализовано",
-        "votes": 54,
-        "voted_by": ["AlexPy", "ElenaCode", "DmitryPro", "OlgaAI"],
-        "dev_response": "Уже добавлено в PyForge v1.1! Поддерживается более 12+ библиотек с тестами и генерацией.",
-        "created_at": "2026-08-28T10:00:00Z"
-    },
-    {
-        "id": "idea_2",
-        "title": "Интеграция ИИ-наставника прямо в VS Code как расширение",
-        "description": "Хочется, чтобы ошибки подсвечивались волнистыми линиями прямо в моем редакторе VS Code с подсказками от наставника.",
-        "category": "ai_mentor",
-        "author_username": "ElenaCode",
-        "author_display_name": "Елена (Async Dev)",
-        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=ElenaCode",
-        "status": "completed",
-        "status_label": "✅ Реализовано",
-        "votes": 42,
-        "voted_by": ["AlexPy", "ElenaCode"],
-        "dev_response": "Расширение `vscode-extension` создано и доступно прямо в репозитории проекта с Live Bridge!",
-        "created_at": "2026-08-29T15:30:00Z"
-    },
-    {
-        "id": "idea_3",
-        "title": "Добавить мультиплеер / Дуэли разработчиков (Code Battle 1v1)",
-        "description": "Возможность соревноваться в реальном времени с другим игроком: кто быстрее и чище решит задачу на Python на время.",
-        "category": "practice",
-        "author_username": "DmitryPro",
-        "author_display_name": "Дмитрий В.",
-        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=DmitryPro",
-        "status": "in_progress",
-        "status_label": "🚀 В разработке",
-        "votes": 89,
-        "voted_by": ["AlexPy", "ElenaCode", "DmitryPro"],
-        "dev_response": "Отличная идея! Проектируем WebSocket протокол для синхронизации тестов и таймеров дуэли.",
-        "created_at": "2026-09-02T11:00:00Z"
-    },
-    {
-        "id": "idea_4",
-        "title": "Шаблон Telegram-бота на Aiogram 3 с WebApp и платными подписками (Stars)",
-        "description": "Добавить в конструктор готовый проект Telegram Mini App с интеграцией платежей Telegram Stars и базой PostgreSQL.",
-        "category": "templates",
-        "author_username": "OlgaAI",
-        "author_display_name": "Ольга Нейросети",
-        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=OlgaAI",
-        "status": "under_review",
-        "status_label": "💡 На рассмотрении",
-        "votes": 37,
-        "voted_by": ["OlgaAI"],
-        "dev_response": "Взяли на анализ, готовим архитектурный шаблон.",
-        "created_at": "2026-09-04T16:20:00Z"
-    }
-]
+# Начальные идеи сообщества (пустой список для чистой базы)
+INITIAL_IDEAS = []
 
 class IdeasService:
     @classmethod

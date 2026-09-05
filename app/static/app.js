@@ -168,12 +168,23 @@ function copyToClipboard(text) {
 function switchTab(tabId) {
   currentTab = tabId;
 
-  // Update Nav buttons styling
+  // Update Sidebar Nav buttons styling
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.remove('active');
   });
   const activeNavBtn = document.getElementById(`nav-${tabId}`);
   if (activeNavBtn) activeNavBtn.classList.add('active');
+
+  // Update Top Nav buttons styling
+  document.querySelectorAll('.top-nav-btn').forEach(btn => {
+    btn.classList.remove('bg-slate-800', 'text-white', 'border', 'border-slate-700');
+    btn.classList.add('text-slate-300');
+  });
+  const activeTopBtn = document.getElementById(`top-nav-${tabId}`);
+  if (activeTopBtn) {
+    activeTopBtn.classList.add('bg-slate-800', 'text-white', 'border', 'border-slate-700');
+    activeTopBtn.classList.remove('text-slate-300');
+  }
 
   // Update visible section
   document.querySelectorAll('.tab-content').forEach(sec => {
@@ -1397,17 +1408,6 @@ async function equipTitle(titleId) {
       await loadUserProfile();
       openTitleShopModal();
       if (currentTab === 'leaderboard') loadLeaderboard();
-    }
-  } catch (err) {
-    alert(err.message);
-  }
-}
-      body: JSON.stringify({ title_id: titleId })
-    });
-    if (res.ok) {
-      showToast('Титул успешно экипирован! 👑');
-      await loadUserProfile();
-      openTitleShopModal();
     }
   } catch (err) {
     alert(err.message);
