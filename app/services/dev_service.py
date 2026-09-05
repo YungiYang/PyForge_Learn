@@ -340,3 +340,51 @@ class DevService:
             "user": sanitized,
             "message": f"Роль пользователя @{target_uname} успешно изменена на «{target_role.upper()}»! 🛡️"
         }
+
+    @classmethod
+    def export_backup(cls, token: str) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        data_dir = Path(__file__).resolve().parent.parent / "data"
+        backup: Dict[str, Any] = {
+            "version": "1.0",
+            "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "files": {}
+        }
+        json_filenames = [
+            "users.json", "sessions.json", "custom_roles.json",
+            "custom_titles.json", "forum_data.json", "ideas_data.json",
+            "custom_tasks.json"
+        ]
+        for name in json_filenames:
+            file_path = data_dir / name
+            if file_path.exists():
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        backup["files"][name] = json.load(f)
+                except Exception:
+                    pass
+        return backup
+
+    @classmethod
+    def import_backup(cls, token: str, backup_data: Dict[str, Any]) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        data_dir = Path(__file__).resolve().parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        files = backup_data.get("files", {})
+        if not files:
+            raise ValueError("Резервная копия не содержит данных файлов")
+
+        restored_files = []
+        for name, content in files.items():
+            if name.endswith(".json") and "/" not in name and "\\" not in name:
+                file_path = data_dir / name
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(content, f, ensure_ascii=False, indent=2)
+                restored_files.append(name)
+
+        return {
+            "success": True,
+            "restored_files": restored_files,
+            "message": f"Резервная копия успешно восстановлена ({len(restored_files)} файлов: {', '.join(restored_files)})! 🎉"
+        }
+

@@ -86,14 +86,22 @@ class GamificationService:
                 "can_afford": can_afford
             })
 
+        is_creator = profile.get("username", "").lower() == "chevels" or profile.get("role") == "creator"
+        user_role = "creator" if is_creator else profile.get("role", "user")
+        is_dev = is_creator or user_role in ["creator", "admin"] or profile.get("is_developer", False)
+
         return {
             "id": profile.get("id"),
             "username": profile.get("username", "Python Developer"),
             "display_name": profile.get("display_name") or profile.get("username", "Python Developer"),
             "avatar": profile.get("avatar"),
+            "role": user_role,
+            "is_developer": is_dev,
             "stars": stars,
             "total_earned_stars": profile.get("total_earned_stars", 0),
             "active_title": active_title,
+            "active_title_id": active_title_id,
+            "unlocked_titles": unlocked,
             "solved_tasks_count": len(profile.get("solved_tasks", [])),
             "solved_task_ids": profile.get("solved_tasks", []),
             "shop_titles": shop_titles

@@ -392,6 +392,27 @@ async def dev_delete_role(req: DevDeleteCustomRoleRequest, authorization: Option
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/api/dev/backup/export")
+async def dev_export_backup(authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.export_backup(t)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/backup/import")
+async def dev_import_backup(req: Dict[str, Any], authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.import_backup(t, req)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # --- DAILY QUESTS ---
 
 @app.get("/api/quests/daily")

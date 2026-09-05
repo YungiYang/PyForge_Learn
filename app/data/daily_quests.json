@@ -290,6 +290,34 @@
         "completed": true,
         "claimed": false
       }
+    },
+    "api_user_1788643201": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788643201": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788643695": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788643696": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
     }
   }
 }

@@ -49,14 +49,28 @@ class IdeasService:
         else: # "new"
             filtered.sort(key=lambda x: x.get("created_at", ""), reverse=True)
 
+        users_map = AuthService._load_users()
+        for i in filtered:
+            uname = i.get("author_username", "")
+            u_data = users_map.get(uname.lower(), {})
+            i["author_display_name"] = u_data.get("display_name") or i.get("author_display_name") or uname
+            i["author_avatar"] = u_data.get("avatar") or i.get("author_avatar") or f"https://api.dicebear.com/7.x/bottts/svg?seed={uname}"
+            is_creator = AuthService.is_developer(uname) or u_data.get("role") == "creator" or uname.lower() == "chevels"
+            i["author_role"] = "creator" if is_creator else u_data.get("role", "user")
+            i["author_is_dev"] = is_creator or i["author_role"] in ["creator", "admin"] or u_data.get("is_developer", False)
+
         return filtered
 
     @classmethod
     def submit_idea(cls, title: str, description: str, category: str, author_username: str) -> Dict[str, Any]:
         ideas = cls._load_ideas()
-        user_info = AuthService.get_user_by_token(author_username) or {}
+        users_map = AuthService._load_users()
+        user_info = users_map.get(author_username.lower()) or AuthService.get_user_by_token(author_username) or {}
         display_name = user_info.get("display_name") or author_username
         avatar = user_info.get("avatar") or f"https://api.dicebear.com/7.x/bottts/svg?seed={author_username}"
+        is_creator = AuthService.is_developer(author_username) or user_info.get("role") == "creator" or author_username.lower() == "chevels"
+        author_role = "creator" if is_creator else user_info.get("role", "user")
+        is_dev = is_creator or author_role in ["creator", "admin"] or user_info.get("is_developer", False)
 
         idea_id = f"idea_{int(time.time())}_{secrets.token_hex(3)}"
         new_idea = {
@@ -67,6 +81,8 @@ class IdeasService:
             "author_username": author_username,
             "author_display_name": display_name,
             "author_avatar": avatar,
+            "author_role": author_role,
+            "author_is_dev": is_dev,
             "status": "under_review",
             "status_label": "💡 На рассмотрении",
             "votes": 1,

@@ -1732,6 +1732,10 @@
           <i data-lucide="users" class="w-3.5 h-3.5"></i>
           <span>Все пользователи</span>
         </button>
+        <button onclick="switchDevPanelTab('backup')" id="dev-tab-btn-backup" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i>
+          <span>💾 Бэкап базы</span>
+        </button>
       </div>
 
       <!-- Dev Panel Content Body -->
@@ -1815,8 +1819,8 @@
                     <span>📢 Выдать ВСЕМ пользователям</span>
                   </label>
                   <label class="flex items-center gap-2 text-xs text-slate-300 font-semibold cursor-pointer">
-                    <input type="checkbox" id="dev-grant-set-active-check" class="rounded border-slate-700 bg-slate-900 text-amber-500">
-                    <span>Сделать активным сразу</span>
+                    <input type="checkbox" id="dev-grant-set-active-check" checked class="rounded border-slate-700 bg-slate-900 text-amber-500">
+                    <span>Сделать активным сразу (надеть)</span>
                   </label>
                 </div>
 
@@ -2127,6 +2131,65 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: BACKUP & RESTORE -->
+        <div id="dev-tab-backup" class="dev-panel-content-tab hidden space-y-4">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i data-lucide="database-backup" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Экспорт и Восстановление базы данных</h4>
+                <p class="text-[11px] text-slate-400">Сохраняйте всех пользователей, сессии, роли и титулы в один файл перед обновлением сайта.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <!-- Export Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>1. Скачать резервную копию (Экспорт)</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Скачивает файл <code class="text-amber-300 font-mono">pyforge_backup.json</code>, содержащий всех зарегистрированных пользователей, их роли, пароли, звёзды, титулы, форум и идеи.
+                  </p>
+                </div>
+                <button onclick="handleDevExportBackup()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  <span>Скачать копию базы (.json)</span>
+                </button>
+              </div>
+
+              <!-- Import Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-sky-400 font-bold text-xs">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>2. Восстановить базу из файла (Импорт)</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Загрузите ранее скачанный файл бэкапа после обновления кода или передеплоя, чтобы моментально вернуть всех пользователей.
+                  </p>
+                </div>
+                <div>
+                  <input type="file" id="dev-backup-file-input" accept=".json" class="hidden" onchange="handleDevImportBackupFile(event)">
+                  <button onclick="document.getElementById('dev-backup-file-input').click()" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 transition">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Выбрать и загрузить бэкап</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+              <span>Все данные шифруются и проверяются сервером. Импорт доступен только Создателю Chevels.</span>
             </div>
           </div>
         </div>

@@ -27,24 +27,41 @@ function getAuthHeaders() {
   return headers;
 }
 
-// Developer & Role Badge Helpers (Chevels, Creator, Admin, Mod, VIP, Mentor)
-function isDeveloperUser(userOrName) {
-  if (!userOrName) return false;
-  if (typeof userOrName === 'string') {
-    return userOrName.toLowerCase() === 'chevels';
-  }
-  const uname = (userOrName.username || '').toLowerCase();
-  return uname === 'chevels' || userOrName.is_developer === true || userOrName.role === 'creator' || userOrName.role === 'admin';
-}
+// Global User Role Cache for instant visual updates across all components
+window.allUsersRoleCache = window.allUsersRoleCache || {};
 
+// Developer & Role Badge Helpers (Chevels, Creator, Admin, Mod, VIP, Mentor, Custom Roles)
 function getUserRole(userOrName) {
   if (!userOrName) return 'user';
   if (typeof userOrName === 'string') {
-    if (userOrName.toLowerCase() === 'chevels') return 'creator';
+    const uname = userOrName.toLowerCase().trim();
+    if (uname === 'chevels') return 'creator';
+    if (currentUser && (currentUser.username || '').toLowerCase() === uname && currentUser.role) {
+      return currentUser.role;
+    }
+    if (window.allUsersRoleCache && window.allUsersRoleCache[uname]) {
+      return window.allUsersRoleCache[uname];
+    }
     return 'user';
   }
-  if ((userOrName.username || '').toLowerCase() === 'chevels') return 'creator';
-  return userOrName.role || (userOrName.is_developer ? 'creator' : 'user');
+  const uname = (userOrName.username || userOrName.author_username || '').toLowerCase().trim();
+  if (uname === 'chevels') return 'creator';
+  const resolvedRole = userOrName.role || userOrName.author_role || (userOrName.is_developer ? 'creator' : null) || (window.allUsersRoleCache && window.allUsersRoleCache[uname]) || 'user';
+  if (uname && resolvedRole && resolvedRole !== 'user') {
+    window.allUsersRoleCache[uname] = resolvedRole;
+  }
+  return resolvedRole;
+}
+
+function isDeveloperUser(userOrName) {
+  if (!userOrName) return false;
+  const role = getUserRole(userOrName);
+  if (typeof userOrName === 'string') {
+    const uname = userOrName.toLowerCase().trim();
+    return uname === 'chevels' || role === 'creator' || role === 'admin';
+  }
+  const uname = (userOrName.username || userOrName.author_username || '').toLowerCase().trim();
+  return uname === 'chevels' || userOrName.is_developer === true || role === 'creator' || role === 'admin';
 }
 
 function getUserBadgeHtml(userOrName, extraClass = '') {
@@ -71,7 +88,7 @@ function getUserBadgeHtml(userOrName, extraClass = '') {
     const colorClass = customRole.color_class || 'bg-sky-500/20 border-sky-500/50 text-sky-300';
     return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tracking-wide select-none ${colorClass} ${extraClass}" title="${escapeHtml(customRole.name)}"><i data-lucide="${icon}" class="w-3 h-3 flex-shrink-0"></i><span>${escapeHtml(customRole.name.toUpperCase())}</span></span>`;
   }
-  return '';
+  return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold select-none ${extraClass}"><i data-lucide="award" class="w-3 h-3 flex-shrink-0"></i><span>${escapeHtml(role.toUpperCase())}</span></span>`;
 }
 
 function getDeveloperBadgeHtml(userOrName, extraClass = '') {
@@ -160,6 +177,7 @@ benchmark()
 // Initialization on DOM Load
 document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
+  loadDevRolesList(true);
   await checkAuthState();
   loadUserProfile();
   loadDailyQuests();
@@ -1103,7 +1121,17 @@ async function loadUserProfile() {
 
     if (currentUser) {
       currentUser.stars = userProfile.stars;
+      currentUser.active_title = userProfile.active_title;
       currentUser.active_title_id = userProfile.active_title?.id;
+      if (userProfile.role) {
+        currentUser.role = userProfile.role;
+        currentUser.is_developer = (userProfile.role === 'creator' || userProfile.role === 'admin' || (currentUser.username || '').toLowerCase() === 'chevels');
+      }
+      if (currentUser.username) {
+        window.allUsersRoleCache = window.allUsersRoleCache || {};
+        window.allUsersRoleCache[currentUser.username.toLowerCase()] = currentUser.role || 'user';
+      }
+      updateHeaderUserWidget(currentUser);
     }
   } catch (err) {
     console.error('Ошибка загрузки профиля:', err);
@@ -1808,6 +1836,10 @@ async function checkAuthState() {
     if (res.ok) {
       const data = await res.json();
       currentUser = data.user;
+      if (currentUser && currentUser.username) {
+        window.allUsersRoleCache = window.allUsersRoleCache || {};
+        window.allUsersRoleCache[currentUser.username.toLowerCase()] = currentUser.role || (currentUser.username.toLowerCase() === 'chevels' ? 'creator' : 'user');
+      }
       updateHeaderUserWidget(currentUser);
     } else {
       localStorage.removeItem('pyforge_token');
@@ -1838,13 +1870,37 @@ function updateHeaderUserWidget(user) {
     const displayName = user.display_name || user.username;
     const isDev = isDeveloperUser(user);
     const isCreator = (user.username || '').toLowerCase() === 'chevels' || user.role === 'creator';
-    const roleLabels = { creator: '👑 Создатель', admin: '⚡ Администратор', moderator: '🛡️ Модератор', vip: '⭐ VIP Профиль', mentor: '🧠 Эксперт & Ментор', user: 'Профиль & Аватар ⚙️' };
-    const subLabel = roleLabels[user.role] || (isCreator ? '👑 Создатель' : 'Профиль & Аватар ⚙️');
+    const role = getUserRole(user);
+    const roleLabels = {
+      creator: '👑 Создатель',
+      admin: '⚡ Администратор',
+      moderator: '🛡️ Модератор',
+      vip: '⭐ VIP Профиль',
+      mentor: '🧠 Эксперт & Ментор',
+      user: 'Профиль & Аватар ⚙️'
+    };
+    const customRoleObj = (window.devLoadedRoles || []).find(r => r.id === role);
+    const subLabel = customRoleObj ? `${customRoleObj.name}` : (roleLabels[role] || (isCreator ? '👑 Создатель' : 'Профиль & Аватар ⚙️'));
     const devBadge = getUserBadgeHtml(user);
+
+    const borderClass = isCreator ? 'border-amber-500/60 shadow-md shadow-amber-500/10' :
+                        role === 'admin' ? 'border-red-500/60 shadow-md shadow-red-500/10' :
+                        role === 'moderator' ? 'border-emerald-500/60' :
+                        role === 'vip' ? 'border-purple-500/60' :
+                        role === 'mentor' ? 'border-cyan-500/60' :
+                        role && role !== 'user' ? 'border-sky-500/60' :
+                        'border-slate-700 hover:border-sky-500/50';
+
+    const subColor = isCreator ? 'text-amber-300 font-semibold flex items-center gap-0.5' :
+                     role === 'admin' ? 'text-red-300 font-bold' :
+                     role === 'moderator' ? 'text-emerald-300 font-bold' :
+                     role === 'vip' ? 'text-purple-300 font-bold' :
+                     role === 'mentor' ? 'text-cyan-300 font-bold' :
+                     role && role !== 'user' ? 'text-sky-300 font-bold' : 'text-slate-400';
 
     container.innerHTML = `
       <div class="flex items-center space-x-1.5 sm:space-x-2 pl-1">
-        <button onclick="openProfileModal()" title="Настройки профиля и аватара" class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border ${isCreator ? 'border-amber-500/60 shadow-md shadow-amber-500/10' : user.role === 'admin' ? 'border-red-500/60' : user.role === 'moderator' ? 'border-emerald-500/60' : user.role === 'vip' ? 'border-purple-500/60' : 'border-slate-700 hover:border-sky-500/50'} text-xs shadow-sm transition group">
+        <button onclick="openProfileModal()" title="Настройки профиля и аватара" class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border ${borderClass} text-xs shadow-sm transition group">
           <div class="relative">
             <img src="${avatar}" class="w-6 h-6 rounded-lg border ${isCreator ? 'border-amber-400' : 'border-slate-600'} bg-slate-900 object-cover flex-shrink-0" alt="${escapeHtml(displayName)}">
             ${isCreator ? '<span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></span>' : ''}
@@ -1854,7 +1910,7 @@ function updateHeaderUserWidget(user) {
               <span>${escapeHtml(displayName)}</span>
               ${devBadge}
             </div>
-            <div class="text-[9px] ${isCreator ? 'text-amber-300 font-semibold flex items-center gap-0.5' : user.role === 'admin' ? 'text-red-300 font-bold' : user.role === 'moderator' ? 'text-emerald-300 font-bold' : user.role === 'vip' ? 'text-purple-300 font-bold' : 'text-slate-400'}">${subLabel}</div>
+            <div class="text-[9px] ${subColor}">${subLabel}</div>
           </div>
           <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 group-hover:text-white transition ml-0.5"></i>
         </button>
@@ -2220,9 +2276,34 @@ function openProfileModal() {
   document.getElementById('profile-modal-tasks').innerText = (currentUser.solved_tasks || []).length;
   
   const titleBadge = document.getElementById('profile-modal-title-badge');
-  if (titleBadge && isDev) {
-    titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-300 border border-amber-500/50 shadow-sm";
-    titleBadge.innerText = "👑 Создатель & Lead Dev";
+  if (titleBadge) {
+    const role = getUserRole(currentUser);
+    const customRole = (window.devLoadedRoles || []).find(r => r.id === role);
+    if (role === 'creator') {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-300 border border-amber-500/50 shadow-sm";
+      titleBadge.innerText = "👑 Создатель & Lead Dev";
+    } else if (role === 'admin') {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/50 shadow-sm";
+      titleBadge.innerText = "⚡ Администратор";
+    } else if (role === 'moderator') {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm";
+      titleBadge.innerText = "🛡️ Модератор";
+    } else if (role === 'vip') {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-sm";
+      titleBadge.innerText = "⭐ VIP Пользователь";
+    } else if (role === 'mentor') {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm";
+      titleBadge.innerText = "🧠 Эксперт & Ментор";
+    } else if (customRole) {
+      titleBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold border ${customRole.color_class || 'bg-sky-500/20 text-sky-300 border-sky-500/50'}`;
+      titleBadge.innerText = customRole.name;
+    } else if (currentUser.active_title) {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-400 border border-slate-700";
+      titleBadge.innerText = currentUser.active_title.name || '🐍 Pythonist';
+    } else {
+      titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+      titleBadge.innerText = "🐍 Pythonist";
+    }
   }
   
   // Inputs
@@ -2736,6 +2817,13 @@ function renderForumTopics(topics) {
 
   topics.forEach(t => {
     const card = document.createElement('div');
+    const authorObj = { username: t.author_username, display_name: t.author_display_name, role: t.author_role, is_developer: t.author_is_dev };
+    const isAuthorDev = isDeveloperUser(authorObj);
+    const badgeHtml = getUserBadgeHtml(authorObj);
+    if (t.author_username && t.author_role) {
+      window.allUsersRoleCache[t.author_username.toLowerCase()] = t.author_role;
+    }
+
     card.className = 'glass-panel rounded-2xl p-5 border border-slate-800/80 hover:border-sky-500/50 transition cursor-pointer space-y-3 group';
     card.onclick = (e) => {
       if (e.target.closest('.no-modal-open')) return;
@@ -2768,12 +2856,12 @@ function renderForumTopics(topics) {
 
       <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-850">
         <div class="flex items-center space-x-2">
-          <img src="${t.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${t.author_username}`}" class="w-5 h-5 rounded-md border ${isDeveloperUser(t.author_username) ? 'border-amber-400' : 'border-slate-700'} bg-slate-900" alt="">
+          <img src="${t.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${t.author_username}`}" class="w-5 h-5 rounded-md border ${isAuthorDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900" alt="">
           <span class="text-xs font-semibold text-slate-300 flex items-center gap-1">
             <span>${escapeHtml(t.author_display_name || t.author_username)}</span>
-            ${getDeveloperBadgeHtml(t.author_username)}
+            ${badgeHtml}
           </span>
-          <span class="text-[10px] ${isDeveloperUser(t.author_username) ? 'text-amber-300 font-bold' : 'text-amber-400 font-medium'}">${escapeHtml(t.author_title || '🐍 Pythonist')}</span>
+          <span class="text-[10px] ${isAuthorDev ? 'text-amber-300 font-bold' : 'text-amber-400 font-medium'}">${escapeHtml(t.author_title || (isAuthorDev ? '👑 Создатель' : '🐍 Pythonist'))}</span>
         </div>
         <div class="flex items-center space-x-2">
           ${tagsHtml}
@@ -2856,12 +2944,16 @@ async function openTopicDetail(topicId) {
 }
 
 function renderTopicDetailModal(topic) {
-  const isDev = isDeveloperUser(topic.author_username);
+  const authorObj = { username: topic.author_username, display_name: topic.author_display_name, role: topic.author_role, is_developer: topic.author_is_dev };
+  const isDev = isDeveloperUser(authorObj);
+  if (topic.author_username && topic.author_role) {
+    window.allUsersRoleCache[topic.author_username.toLowerCase()] = topic.author_role;
+  }
   document.getElementById('topic-detail-title').innerText = topic.title;
   document.getElementById('topic-detail-category-badge').innerText = topic.category.toUpperCase();
   document.getElementById('topic-detail-date').innerText = topic.created_at ? topic.created_at.replace('T', ' ').slice(0, 16) : '';
   document.getElementById('topic-detail-author-avatar').src = topic.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${topic.author_username}`;
-  document.getElementById('topic-detail-author-name').innerHTML = `<span>${escapeHtml(topic.author_display_name || topic.author_username)}</span> ${getDeveloperBadgeHtml(topic.author_username)}`;
+  document.getElementById('topic-detail-author-name').innerHTML = `<span>${escapeHtml(topic.author_display_name || topic.author_username)}</span> ${getUserBadgeHtml(authorObj)}`;
   
   const authorTitleElem = document.getElementById('topic-detail-author-title');
   if (authorTitleElem) {
@@ -2893,7 +2985,12 @@ function renderTopicComments(comments) {
 
   comments.forEach(c => {
     const card = document.createElement('div');
-    const isDev = isDeveloperUser(c.author_username);
+    const authorObj = { username: c.author_username, display_name: c.author_display_name, role: c.author_role, is_developer: c.author_is_dev };
+    const isDev = isDeveloperUser(authorObj);
+    const badgeHtml = getUserBadgeHtml(authorObj);
+    if (c.author_username && c.author_role) {
+      window.allUsersRoleCache[c.author_username.toLowerCase()] = c.author_role;
+    }
     card.className = `p-3.5 rounded-xl ${isDev ? 'bg-amber-950/20 border border-amber-500/30' : 'bg-slate-950/60 border border-slate-800'} space-y-2`;
     card.innerHTML = `
       <div class="flex items-center justify-between">
@@ -2901,7 +2998,7 @@ function renderTopicComments(comments) {
           <img src="${c.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${c.author_username}`}" class="w-6 h-6 rounded-md border ${isDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900">
           <span class="font-bold text-white text-xs flex items-center gap-1">
             <span>${escapeHtml(c.author_display_name || c.author_username)}</span>
-            ${getDeveloperBadgeHtml(c.author_username)}
+            ${badgeHtml}
           </span>
           <span class="text-[10px] ${isDev ? 'text-amber-300 font-extrabold' : 'text-amber-400'}">${isDev ? '👑 Создатель & Lead Dev' : escapeHtml(c.author_title || '🐍 Pythonist')}</span>
         </div>
@@ -3033,7 +3130,13 @@ function renderIdeas(ideas) {
 
   ideas.forEach(idea => {
     const card = document.createElement('div');
-    const isAuthorDev = isDeveloperUser(idea.author_username);
+    const authorObj = { username: idea.author_username, display_name: idea.author_display_name, role: idea.author_role, is_developer: idea.author_is_dev };
+    const isAuthorDev = isDeveloperUser(authorObj);
+    const badgeHtml = getUserBadgeHtml(authorObj);
+    if (idea.author_username && idea.author_role) {
+      window.allUsersRoleCache[idea.author_username.toLowerCase()] = idea.author_role;
+    }
+
     card.className = `glass-panel rounded-2xl p-5 border ${isAuthorDev ? 'border-amber-500/40 bg-amber-950/10' : 'border-slate-800'} flex flex-col justify-between space-y-4 hover:border-yellow-500/40 transition shadow-sm`;
 
     const statusColor = idea.status === 'completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
@@ -3081,7 +3184,7 @@ function renderIdeas(ideas) {
           <img src="${idea.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${idea.author_username}`}" class="w-5 h-5 rounded-md border ${isAuthorDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900">
           <span class="text-[11px] text-slate-300 font-medium flex items-center gap-1">
             <span>${escapeHtml(idea.author_display_name || idea.author_username)}</span>
-            ${getDeveloperBadgeHtml(idea.author_username)}
+            ${badgeHtml}
           </span>
         </div>
         <span class="text-[10px] text-slate-500 font-mono">${idea.created_at ? idea.created_at.split('T')[0] : ''}</span>
@@ -3892,6 +3995,9 @@ async function loadDevUsersTable() {
     users.forEach(u => {
       const isCreator = (u.username || '').toLowerCase() === 'chevels' || u.role === 'creator';
       const currentRole = u.role || (isCreator ? 'creator' : 'user');
+      if (u.username) {
+        window.allUsersRoleCache[u.username.toLowerCase()] = currentRole;
+      }
       const badgeHtml = getUserBadgeHtml(u);
 
       // Build options from all available roles
@@ -3929,7 +4035,7 @@ async function loadDevUsersTable() {
         <td class="p-2.5">
           <div class="flex items-center gap-1.5">
             <button onclick="quickDevOpenGrantTitleForUser('${escapeHtml(u.username)}')" title="Выдать титул этому пользователю" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
-              <i data-lucide="crown" class="w-3 h-3"></i>
+              <i data-lucide="crown" class="w-3.5 h-3.5"></i>
               <span>Титул</span>
             </button>
             <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" title="Начислить +1,000 ⭐" class="px-2 py-1 bg-slate-800 hover:bg-amber-500/15 border border-slate-700 hover:border-amber-500/30 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
@@ -3962,10 +4068,12 @@ async function handleDevChangeUserRole(username, newRole) {
     const data = await res.json();
     if (res.ok && data.success) {
       showToast(`👑 Роль @${username} успешно изменена на «${newRole.toUpperCase()}»!`);
+      window.allUsersRoleCache[username.toLowerCase()] = newRole;
       if (currentUser && currentUser.username.toLowerCase() === username.toLowerCase()) {
         currentUser.role = newRole;
         currentUser.is_developer = (newRole === 'creator' || newRole === 'admin' || username.toLowerCase() === 'chevels');
         updateHeaderUserWidget(currentUser);
+        await loadUserProfile();
       }
       loadDevUsersTable();
       if (currentTab === 'leaderboard') loadLeaderboard();
@@ -4005,6 +4113,80 @@ async function handleDevQuickGiveStarsToUser(username, amount) {
     alert(err.message);
   }
 }
+
+// --- TAB 6: BACKUP & RESTORE DATABASE ---
+async function handleDevExportBackup() {
+  try {
+    const res = await fetch('/api/dev/backup/export', {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Ошибка экспорта бэкапа');
+    }
+    const backupData = await res.json();
+    const jsonStr = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `pyforge_backup_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('💾 Резервная копия базы успешно скачана на ваш компьютер!');
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function handleDevImportBackupFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const confirmImport = confirm('Вы уверены, что хотите восстановить базу из этого файла? Текущие данные пользователей и сессий будут обновлены данными из бэкапа.');
+  if (!confirmImport) {
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const backupData = JSON.parse(e.target.result);
+        const res = await fetch('/api/dev/backup/import', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(backupData)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'База данных успешно восстановлена! 🎉');
+          await loadUserProfile();
+          await loadDevRolesList(true);
+          loadDevUsersTable();
+          if (currentTab === 'leaderboard') loadLeaderboard();
+          if (currentTab === 'forum') loadForumTopics();
+          if (currentTab === 'ideas') loadIdeas();
+        } else {
+          alert(data.detail || 'Ошибка при восстановлении базы');
+        }
+      } catch (parseErr) {
+        alert('Некорректный файл JSON: ' + parseErr.message);
+      } finally {
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  } catch (err) {
+    alert('Ошибка чтения файла: ' + err.message);
+    event.target.value = '';
+  }
+}
+
 
 
 
