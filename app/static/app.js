@@ -27,19 +27,48 @@ function getAuthHeaders() {
   return headers;
 }
 
-// Developer & Creator Badge Helpers (Chevels & Core Devs)
+// Developer & Role Badge Helpers (Chevels, Creator, Admin, Mod, VIP, Mentor)
 function isDeveloperUser(userOrName) {
   if (!userOrName) return false;
   if (typeof userOrName === 'string') {
     return userOrName.toLowerCase() === 'chevels';
   }
   const uname = (userOrName.username || '').toLowerCase();
-  return uname === 'chevels' || userOrName.is_developer === true || userOrName.role === 'creator';
+  return uname === 'chevels' || userOrName.is_developer === true || userOrName.role === 'creator' || userOrName.role === 'admin';
+}
+
+function getUserRole(userOrName) {
+  if (!userOrName) return 'user';
+  if (typeof userOrName === 'string') {
+    if (userOrName.toLowerCase() === 'chevels') return 'creator';
+    return 'user';
+  }
+  if ((userOrName.username || '').toLowerCase() === 'chevels') return 'creator';
+  return userOrName.role || (userOrName.is_developer ? 'creator' : 'user');
+}
+
+function getUserBadgeHtml(userOrName, extraClass = '') {
+  const role = getUserRole(userOrName);
+  if (role === 'creator') {
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/60 text-amber-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-amber-500/20 select-none ${extraClass}" title="👑 Создатель платформы PyForge"><i data-lucide="crown" class="w-3 h-3 text-amber-400 flex-shrink-0"></i><span class="bg-gradient-to-r from-amber-300 via-orange-300 to-rose-300 bg-clip-text text-transparent font-black">CREATOR</span></span>`;
+  }
+  if (role === 'admin') {
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-500/20 border border-red-500/50 text-red-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-red-500/20 select-none ${extraClass}" title="⚡ Администратор"><i data-lucide="shield-alert" class="w-3 h-3 text-red-400 flex-shrink-0"></i><span class="font-black">ADMIN</span></span>`;
+  }
+  if (role === 'moderator') {
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-emerald-500/20 select-none ${extraClass}" title="🛡️ Модератор"><i data-lucide="shield-check" class="w-3 h-3 text-emerald-400 flex-shrink-0"></i><span class="font-black">MOD</span></span>`;
+  }
+  if (role === 'vip') {
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/50 text-purple-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-purple-500/20 select-none ${extraClass}" title="⭐ VIP Пользователь"><i data-lucide="sparkles" class="w-3 h-3 text-purple-400 flex-shrink-0"></i><span class="font-black">VIP</span></span>`;
+  }
+  if (role === 'mentor') {
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-cyan-500/20 select-none ${extraClass}" title="🧠 Эксперт & Ментор"><i data-lucide="brain" class="w-3 h-3 text-cyan-400 flex-shrink-0"></i><span class="font-black">MENTOR</span></span>`;
+  }
+  return '';
 }
 
 function getDeveloperBadgeHtml(userOrName, extraClass = '') {
-  if (!isDeveloperUser(userOrName)) return '';
-  return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 border border-amber-500/50 text-amber-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-amber-500/20 select-none ${extraClass}" title="Создатель & Главный разработчик PyForge"><i data-lucide="shield-check" class="w-3 h-3 text-amber-400 flex-shrink-0"></i><span class="bg-gradient-to-r from-amber-300 via-orange-300 to-rose-300 bg-clip-text text-transparent font-black">DEV</span></span>`;
+  return getUserBadgeHtml(userOrName, extraClass);
 }
 
 // Playground Code Presets
@@ -1801,21 +1830,24 @@ function updateHeaderUserWidget(user) {
     const avatar = user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`;
     const displayName = user.display_name || user.username;
     const isDev = isDeveloperUser(user);
-    const devBadge = getDeveloperBadgeHtml(user);
+    const isCreator = (user.username || '').toLowerCase() === 'chevels' || user.role === 'creator';
+    const roleLabels = { creator: '👑 Создатель', admin: '⚡ Администратор', moderator: '🛡️ Модератор', vip: '⭐ VIP Профиль', mentor: '🧠 Эксперт & Ментор', user: 'Профиль & Аватар ⚙️' };
+    const subLabel = roleLabels[user.role] || (isCreator ? '👑 Создатель' : 'Профиль & Аватар ⚙️');
+    const devBadge = getUserBadgeHtml(user);
 
     container.innerHTML = `
       <div class="flex items-center space-x-1.5 sm:space-x-2 pl-1">
-        <button onclick="openProfileModal()" title="Настройки профиля и аватара" class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border ${isDev ? 'border-amber-500/60 shadow-md shadow-amber-500/10' : 'border-slate-700 hover:border-sky-500/50'} text-xs shadow-sm transition group">
+        <button onclick="openProfileModal()" title="Настройки профиля и аватара" class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border ${isCreator ? 'border-amber-500/60 shadow-md shadow-amber-500/10' : user.role === 'admin' ? 'border-red-500/60' : user.role === 'moderator' ? 'border-emerald-500/60' : user.role === 'vip' ? 'border-purple-500/60' : 'border-slate-700 hover:border-sky-500/50'} text-xs shadow-sm transition group">
           <div class="relative">
-            <img src="${avatar}" class="w-6 h-6 rounded-lg border ${isDev ? 'border-amber-400' : 'border-slate-600'} bg-slate-900 object-cover flex-shrink-0" alt="${escapeHtml(displayName)}">
-            ${isDev ? '<span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></span>' : ''}
+            <img src="${avatar}" class="w-6 h-6 rounded-lg border ${isCreator ? 'border-amber-400' : 'border-slate-600'} bg-slate-900 object-cover flex-shrink-0" alt="${escapeHtml(displayName)}">
+            ${isCreator ? '<span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></span>' : ''}
           </div>
           <div class="text-left hidden sm:block">
             <div class="flex items-center gap-1 font-bold text-white group-hover:text-sky-300 transition max-w-[125px] truncate leading-tight">
               <span>${escapeHtml(displayName)}</span>
               ${devBadge}
             </div>
-            <div class="text-[9px] ${isDev ? 'text-amber-300 font-semibold flex items-center gap-0.5' : 'text-slate-400'}">${isDev ? '👑 Создатель' : 'Профиль & Аватар ⚙️'}</div>
+            <div class="text-[9px] ${isCreator ? 'text-amber-300 font-semibold flex items-center gap-0.5' : user.role === 'admin' ? 'text-red-300 font-bold' : user.role === 'moderator' ? 'text-emerald-300 font-bold' : user.role === 'vip' ? 'text-purple-300 font-bold' : 'text-slate-400'}">${subLabel}</div>
           </div>
           <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 group-hover:text-white transition ml-0.5"></i>
         </button>
@@ -3594,7 +3626,8 @@ async function loadDevUsersTable() {
     const res = await fetch('/api/dev/users', {
       headers: getAuthHeaders()
     });
-    const users = await res.json();
+    const data = await res.json();
+    const users = Array.isArray(data) ? data : (data.users || []);
 
     if (!Array.isArray(users) || users.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">Пользователи не найдены</td></tr>';
@@ -3603,28 +3636,46 @@ async function loadDevUsersTable() {
 
     tbody.innerHTML = '';
     users.forEach(u => {
-      const isDev = isDeveloperUser(u);
+      const isCreator = (u.username || '').toLowerCase() === 'chevels' || u.role === 'creator';
+      const currentRole = u.role || (isCreator ? 'creator' : 'user');
+      const badgeHtml = getUserBadgeHtml(u);
+
       const row = document.createElement('tr');
       row.className = 'hover:bg-slate-900/60 transition';
       row.innerHTML = `
         <td class="p-2.5 flex items-center gap-2">
-          <img src="${u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}" class="w-6 h-6 rounded-md border ${isDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-950">
-          <div class="leading-tight">
-            <div class="font-bold text-white flex items-center gap-1">
+          <img src="${u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}" class="w-7 h-7 rounded-lg border ${isCreator ? 'border-amber-400 shadow-sm shadow-amber-500/20' : 'border-slate-700'} bg-slate-950 object-cover flex-shrink-0">
+          <div class="leading-tight min-w-0">
+            <div class="font-bold text-white flex items-center gap-1.5 flex-wrap">
               <span>${escapeHtml(u.display_name || u.username)}</span>
-              ${getDeveloperBadgeHtml(u)}
+              ${badgeHtml}
             </div>
             <div class="text-[10px] text-slate-400 font-mono">@${escapeHtml(u.username)}</div>
           </div>
         </td>
-        <td class="p-2.5 font-bold text-amber-400">Ур. ${u.level || 1}</td>
+        <td class="p-2.5">
+          <select onchange="handleDevChangeUserRole('${escapeHtml(u.username)}', this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-[11px] font-bold focus:outline-none focus:border-amber-500 cursor-pointer">
+            <option value="creator" ${currentRole === 'creator' ? 'selected' : ''}>👑 Создатель (Creator)</option>
+            <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>⚡ Админ (Admin)</option>
+            <option value="moderator" ${currentRole === 'moderator' ? 'selected' : ''}>🛡️ Модератор (Mod)</option>
+            <option value="vip" ${currentRole === 'vip' ? 'selected' : ''}>⭐ VIP (Pro)</option>
+            <option value="mentor" ${currentRole === 'mentor' ? 'selected' : ''}>🧠 Ментор (Mentor)</option>
+            <option value="user" ${currentRole === 'user' ? 'selected' : ''}>👤 Пользователь (User)</option>
+          </select>
+        </td>
+        <td class="p-2.5 font-bold text-amber-400 font-mono">Ур. ${u.level || 1}</td>
         <td class="p-2.5 font-mono font-bold text-yellow-300">${(u.stars || 0).toLocaleString()} ⭐</td>
         <td class="p-2.5 font-mono text-sky-400">${(u.xp || 0).toLocaleString()} XP</td>
-        <td class="p-2.5 text-slate-300 font-mono">${(u.unlocked_titles || []).length}</td>
         <td class="p-2.5">
-          <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" class="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-semibold rounded-lg text-[10px] transition">
-            +1,000 ⭐
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" title="Начислить +1,000 ⭐" class="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
+              <i data-lucide="plus" class="w-3 h-3"></i>
+              <span>1k ⭐</span>
+            </button>
+            <button onclick="document.getElementById('dev-stars-target-user').value = '${escapeHtml(u.username)}'; switchDevPanelTab('stars');" title="Управлять точным балансом в табе Звёзды" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-lg text-[10px] transition">
+              ⚙️
+            </button>
+          </div>
         </td>
       `;
       tbody.appendChild(row);
@@ -3632,6 +3683,38 @@ async function loadDevUsersTable() {
     lucide.createIcons();
   } catch (err) {
     tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-400">Ошибка загрузки списка пользователей</td></tr>';
+  }
+}
+
+async function handleDevChangeUserRole(username, newRole) {
+  try {
+    const res = await fetch('/api/dev/users/role', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        username: username,
+        role: newRole
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`👑 Роль @${username} успешно изменена на «${newRole.toUpperCase()}»!`);
+      if (currentUser && currentUser.username.toLowerCase() === username.toLowerCase()) {
+        currentUser.role = newRole;
+        currentUser.is_developer = (newRole === 'creator' || newRole === 'admin' || username.toLowerCase() === 'chevels');
+        updateHeaderUserWidget(currentUser);
+      }
+      loadDevUsersTable();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+      if (currentTab === 'forum') loadForumTopics();
+      if (currentTab === 'ideas') loadIdeas();
+    } else {
+      alert(data.detail || 'Ошибка изменения роли');
+      loadDevUsersTable();
+    }
+  } catch (err) {
+    alert(err.message);
+    loadDevUsersTable();
   }
 }
 

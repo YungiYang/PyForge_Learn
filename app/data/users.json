@@ -8,8 +8,8 @@
     "bio": "Создатель и главный разработчик платформы PyForge ⚡",
     "is_developer": true,
     "role": "creator",
-    "stars": 4999,
-    "total_earned_stars": 4999,
+    "stars": 7999,
+    "total_earned_stars": 7999,
     "active_title_id": "title_architect",
     "unlocked_titles": [
       "title_novice",
@@ -29,9 +29,9 @@
     "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=RegularDev",
     "bio": "",
     "is_developer": false,
-    "role": "user",
+    "role": "moderator",
     "stars": 7777,
-    "total_earned_stars": 7817,
+    "total_earned_stars": 7857,
     "active_title_id": "title_novice",
     "unlocked_titles": [
       "title_novice"

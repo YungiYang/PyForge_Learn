@@ -145,20 +145,6 @@
         "uprogress": 1
       }
     },
-    "regulardev": {
-      "community_action": {
-        "progress": 1,
-        "completed": true,
-        "claimed": false,
-        "uprogress": 1
-      },
-      "solve_task": {
-        "progress": 2,
-        "completed": true,
-        "claimed": true,
-        "uprogress": 2
-      }
-    },
     "api_user_1788640316": {
       "community_action": {
         "progress": 0,
@@ -215,6 +201,48 @@
       }
     },
     "gamer_1788640385": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788641440": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788641440": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788641462": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788641462": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788641480": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788641480": {
       "solve_task": {
         "progress": 1,
         "completed": true,

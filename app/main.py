@@ -184,6 +184,10 @@ class DevRespondIdeaRequest(BaseModel):
     status: str
     dev_response: str
 
+class DevSetUserRoleRequest(BaseModel):
+    username: str
+    role: str
+
 class ClaimQuestRequest(BaseModel):
     quest_id: str
 
@@ -311,6 +315,16 @@ async def dev_list_users(authorization: Optional[str] = Header(None)):
     t = extract_token(authorization)
     try:
         return DevService.list_users_admin(t)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/users/role")
+async def dev_set_user_role(req: DevSetUserRoleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.set_user_role(t, req.username, req.role)
     except PermissionError as pe:
         raise HTTPException(status_code=403, detail=str(pe))
     except Exception as e:

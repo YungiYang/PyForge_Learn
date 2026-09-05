@@ -199,6 +199,7 @@ class AuthService:
         """Возвращает безопасный профиль пользователя без хэша пароля"""
         uname = user.get("username", "")
         is_dev = cls.is_developer(uname) or user.get("is_developer", False) or user.get("role") == "creator"
+        user_role = "creator" if (cls.is_developer(uname) or user.get("role") == "creator") else user.get("role", "user")
         return {
             "id": user.get("id"),
             "username": uname,
@@ -206,7 +207,7 @@ class AuthService:
             "avatar": user.get("avatar") or f"https://api.dicebear.com/7.x/bottts/svg?seed={uname}",
             "bio": user.get("bio") or ("Создатель и главный разработчик платформы PyForge ⚡" if is_dev else ""),
             "is_developer": is_dev,
-            "role": "creator" if is_dev else "user",
+            "role": user_role,
             "stars": user.get("stars", 0),
             "total_earned_stars": user.get("total_earned_stars", 0),
             "active_title_id": user.get("active_title_id", "title_architect" if is_dev else "title_novice"),

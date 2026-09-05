@@ -7,6 +7,7 @@ from app.main import (
     dev_create_task,
     dev_respond_idea,
     dev_list_users,
+    dev_set_user_role,
     get_daily_quests_endpoint,
     claim_quest_reward_endpoint,
     create_idea,
@@ -15,6 +16,7 @@ from app.main import (
     DevCreateTitleRequest,
     DevCreateTaskRequest,
     DevRespondIdeaRequest,
+    DevSetUserRoleRequest,
     ClaimQuestRequest,
     CreateIdeaRequest
 )
@@ -37,6 +39,11 @@ class TestDevAndQuests(unittest.TestCase):
         except ValueError:
             self.normal_auth = AuthService.login("RegularDev", "userpass123")
         self.normal_token = self.normal_auth.get("token")
+
+        q_data = DailyQuestsService._load_data()
+        if "user_progress" in q_data and "regulardev" in q_data["user_progress"]:
+            del q_data["user_progress"]["regulardev"]
+            DailyQuestsService._save_data(q_data)
 
     def test_dev_panel_creator_permission_strict(self):
         req = DevSetStarsRequest(username="RegularDev", amount=500)
@@ -146,6 +153,26 @@ class TestDevAndQuests(unittest.TestCase):
         with self.assertRaises(HTTPException) as ctx:
             asyncio.run(claim_quest_reward_endpoint(claim_req, authorization=f"Bearer {self.normal_token}"))
         self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_dev_set_user_role_and_list_users(self):
+        # 1. Chevels sets role of RegularDev to 'moderator'
+        role_req = DevSetUserRoleRequest(username="RegularDev", role="moderator")
+        role_res = asyncio.run(dev_set_user_role(role_req, authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(role_res.get("success"))
+        self.assertEqual(role_res.get("user", {}).get("role"), "moderator")
+
+        # 2. RegularDev tries to change role -> 403 Forbidden
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(dev_set_user_role(role_req, authorization=f"Bearer {self.normal_token}"))
+        self.assertEqual(ctx.exception.status_code, 403)
+
+        # 3. List users
+        users_res = asyncio.run(dev_list_users(authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(users_res.get("success"))
+        self.assertGreaterEqual(len(users_res.get("users", [])), 2)
+        mod_user = next((u for u in users_res["users"] if u["username"] == "RegularDev"), None)
+        self.assertIsNotNone(mod_user)
+        self.assertEqual(mod_user.get("role"), "moderator")
 
 if __name__ == "__main__":
     unittest.main()

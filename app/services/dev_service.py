@@ -137,3 +137,31 @@ class DevService:
             "total_users": len(users_list),
             "users": users_list
         }
+
+    @classmethod
+    def set_user_role(cls, token: str, username: str, role: str) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        valid_roles = ["creator", "admin", "moderator", "vip", "mentor", "user"]
+        target_role = role.lower().strip()
+        if target_role not in valid_roles:
+            raise ValueError(f"Недопустимая роль «{role}». Доступные роли: {', '.join(valid_roles)}")
+
+        target_uname = username.strip().lower()
+        users = AuthService._load_users()
+        if target_uname not in users:
+            raise ValueError(f"Пользователь «{target_uname}» не найден")
+
+        users[target_uname]["role"] = target_role
+        if target_role in ["creator", "admin"]:
+            users[target_uname]["is_developer"] = True
+        else:
+            if target_uname != "chevels":
+                users[target_uname]["is_developer"] = False
+
+        AuthService._save_users(users)
+        sanitized = AuthService.sanitize_user(users[target_uname])
+        return {
+            "success": True,
+            "user": sanitized,
+            "message": f"Роль пользователя @{target_uname} успешно изменена на «{target_role.upper()}»! 🛡️"
+        }

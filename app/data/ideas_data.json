@@ -1,5 +1,56 @@
 [
   {
+    "id": "idea_1788641480_5d2196",
+    "title": "Добавить генератор API клиентов",
+    "description": "Было бы круто генерировать клиенты",
+    "category": "tools",
+    "author_username": "RegularDev",
+    "author_display_name": "RegularDev",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=RegularDev",
+    "status": "in_progress",
+    "status_label": "🚀 В разработке",
+    "votes": 1,
+    "voted_by": [
+      "RegularDev"
+    ],
+    "dev_response": "Отличная идея! Скоро будет.",
+    "created_at": "2026-09-05T20:51:20Z"
+  },
+  {
+    "id": "idea_1788641462_399048",
+    "title": "Добавить генератор API клиентов",
+    "description": "Было бы круто генерировать клиенты",
+    "category": "tools",
+    "author_username": "RegularDev",
+    "author_display_name": "RegularDev",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=RegularDev",
+    "status": "in_progress",
+    "status_label": "🚀 В разработке",
+    "votes": 1,
+    "voted_by": [
+      "RegularDev"
+    ],
+    "dev_response": "Отличная идея! Скоро будет.",
+    "created_at": "2026-09-05T20:51:02Z"
+  },
+  {
+    "id": "idea_1788641440_6b1a97",
+    "title": "Добавить генератор API клиентов",
+    "description": "Было бы круто генерировать клиенты",
+    "category": "tools",
+    "author_username": "RegularDev",
+    "author_display_name": "RegularDev",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=RegularDev",
+    "status": "in_progress",
+    "status_label": "🚀 В разработке",
+    "votes": 1,
+    "voted_by": [
+      "RegularDev"
+    ],
+    "dev_response": "Отличная идея! Скоро будет.",
+    "created_at": "2026-09-05T20:50:40Z"
+  },
+  {
     "id": "idea_1788640385_19b9f8",
     "title": "Добавить генератор API клиентов",
     "description": "Было бы круто генерировать клиенты",
