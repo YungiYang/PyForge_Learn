@@ -71,7 +71,26 @@ class DevService:
         }
         save_custom_title(new_title)
 
-        if title_data.get("unlock_now", True):
+        if title_data.get("grant_to_all", False):
+            users = AuthService._load_users()
+            for u in users.values():
+                unlocked = u.get("unlocked_titles", [])
+                if title_id not in unlocked:
+                    unlocked.append(title_id)
+                    u["unlocked_titles"] = unlocked
+            AuthService._save_users(users)
+        elif title_data.get("target_username"):
+            target_u = title_data["target_username"].strip().lower()
+            users = AuthService._load_users()
+            if target_u in users:
+                unlocked = users[target_u].get("unlocked_titles", [])
+                if title_id not in unlocked:
+                    unlocked.append(title_id)
+                    users[target_u]["unlocked_titles"] = unlocked
+                if title_data.get("set_active", False):
+                    users[target_u]["active_title_id"] = title_id
+                AuthService._save_users(users)
+        elif title_data.get("unlock_now", True):
             creator_uname = creator["username"].lower()
             users = AuthService._load_users()
             if creator_uname in users:
@@ -84,6 +103,52 @@ class DevService:
                 AuthService._save_users(users)
 
         return {"success": True, "title": new_title, "message": f"Титул «{name}» успешно создан!"}
+
+    @classmethod
+    def grant_title_to_user(cls, token: str, username: Optional[str], title_id: str, set_active: bool = False, grant_to_all: bool = False) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        all_titles = get_all_titles()
+        matched_title = next((t for t in all_titles if t["id"] == title_id), None)
+        if not matched_title:
+            raise ValueError(f"Титул «{title_id}» не найден в каталоге")
+
+        title_name = matched_title.get("name", title_id)
+        users = AuthService._load_users()
+
+        if grant_to_all:
+            for u in users.values():
+                unlocked = u.get("unlocked_titles", [])
+                if title_id not in unlocked:
+                    unlocked.append(title_id)
+                    u["unlocked_titles"] = unlocked
+                if set_active:
+                    u["active_title_id"] = title_id
+            AuthService._save_users(users)
+            return {
+                "success": True,
+                "message": f"Титул «{title_name}» успешно выдан ВСЕМ ({len(users)}) пользователям платформы! 🎉"
+            }
+
+        if not username:
+            raise ValueError("Укажите логин пользователя для выдачи титула")
+
+        target_uname = username.strip().lower()
+        if target_uname not in users:
+            raise ValueError(f"Пользователь «{target_uname}» не найден")
+
+        unlocked = users[target_uname].get("unlocked_titles", [])
+        if title_id not in unlocked:
+            unlocked.append(title_id)
+            users[target_uname]["unlocked_titles"] = unlocked
+        if set_active:
+            users[target_uname]["active_title_id"] = title_id
+
+        AuthService._save_users(users)
+        return {
+            "success": True,
+            "user": AuthService.sanitize_user(users[target_uname]),
+            "message": f"Титул «{title_name}» успешно выдан пользователю @{target_uname}! 👑"
+        }
 
     @classmethod
     def delete_title(cls, token: str, title_id: str) -> Dict[str, Any]:
@@ -139,12 +204,122 @@ class DevService:
         }
 
     @classmethod
+    def _get_custom_roles_file(cls) -> Path:
+        return Path(__file__).resolve().parent.parent / "data" / "custom_roles.json"
+
+    @classmethod
+    def get_all_roles(cls) -> List[Dict[str, Any]]:
+        builtin_roles = [
+            {"id": "creator", "name": "Создатель", "icon": "crown", "color_class": "from-amber-500/25 via-orange-500/25 to-rose-500/25 border-amber-500/60 text-amber-300", "is_builtin": True},
+            {"id": "admin", "name": "Администратор", "icon": "shield-alert", "color_class": "bg-red-500/20 border-red-500/50 text-red-300", "is_builtin": True},
+            {"id": "moderator", "name": "Модератор", "icon": "shield-check", "color_class": "bg-emerald-500/20 border-emerald-500/50 text-emerald-300", "is_builtin": True},
+            {"id": "vip", "name": "VIP / Pro", "icon": "sparkles", "color_class": "bg-purple-500/20 border-purple-500/50 text-purple-300", "is_builtin": True},
+            {"id": "mentor", "name": "Эксперт & Ментор", "icon": "brain", "color_class": "bg-cyan-500/20 border-cyan-500/50 text-cyan-300", "is_builtin": True},
+            {"id": "user", "name": "Пользователь", "icon": "user", "color_class": "text-slate-400 border-slate-700 bg-slate-800/40", "is_builtin": True}
+        ]
+        rf = cls._get_custom_roles_file()
+        if rf.exists():
+            try:
+                with open(rf, "r", encoding="utf-8") as f:
+                    custom_list = json.load(f)
+                    if isinstance(custom_list, list):
+                        builtin_ids = {r["id"] for r in builtin_roles}
+                        for cr in custom_list:
+                            if cr.get("id") and cr["id"] not in builtin_ids:
+                                cr["is_builtin"] = False
+                                builtin_roles.append(cr)
+            except Exception:
+                pass
+        return builtin_roles
+
+    @classmethod
+    def create_custom_role(cls, token: str, role_data: Dict[str, Any]) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        raw_id = (role_data.get("id") or "").strip().lower()
+        if not raw_id:
+            raw_id = f"role_{secrets.token_hex(3)}"
+        # Sanitize id
+        clean_id = "".join(c for c in raw_id if c.isalnum() or c in "_-")
+        name = (role_data.get("name") or clean_id).strip()
+        if not name:
+            raise ValueError("Укажите название роли")
+
+        new_role = {
+            "id": clean_id,
+            "name": name,
+            "icon": (role_data.get("icon") or "award").strip(),
+            "color_class": (role_data.get("color_class") or "bg-sky-500/20 border-sky-500/50 text-sky-300").strip(),
+            "description": (role_data.get("description") or "").strip(),
+            "is_builtin": False
+        }
+
+        rf = cls._get_custom_roles_file()
+        rf.parent.mkdir(parents=True, exist_ok=True)
+        custom_list = []
+        if rf.exists():
+            try:
+                with open(rf, "r", encoding="utf-8") as f:
+                    custom_list = json.load(f)
+                    if not isinstance(custom_list, list):
+                        custom_list = []
+            except Exception:
+                custom_list = []
+
+        # Replace or append
+        custom_list = [r for r in custom_list if r.get("id") != clean_id]
+        custom_list.append(new_role)
+
+        with open(rf, "w", encoding="utf-8") as f:
+            json.dump(custom_list, f, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "role": new_role,
+            "roles": cls.get_all_roles(),
+            "message": f"Роль «{name}» успешно создана и доступна для выдачи! 🛡️"
+        }
+
+    @classmethod
+    def delete_custom_role(cls, token: str, role_id: str) -> Dict[str, Any]:
+        cls.verify_creator(token)
+        builtins = {"creator", "admin", "moderator", "vip", "mentor", "user"}
+        if role_id.lower() in builtins:
+            raise ValueError("Нельзя удалить стандартную системную роль")
+
+        rf = cls._get_custom_roles_file()
+        if rf.exists():
+            try:
+                with open(rf, "r", encoding="utf-8") as f:
+                    custom_list = json.load(f)
+                custom_list = [r for r in custom_list if r.get("id") != role_id]
+                with open(rf, "w", encoding="utf-8") as f:
+                    json.dump(custom_list, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+        # Reset users having this deleted role to 'user'
+        users = AuthService._load_users()
+        modified = False
+        for u in users.values():
+            if u.get("role") == role_id:
+                u["role"] = "user"
+                modified = True
+        if modified:
+            AuthService._save_users(users)
+
+        return {
+            "success": True,
+            "roles": cls.get_all_roles(),
+            "message": f"Роль «{role_id}» успешно удалена"
+        }
+
+    @classmethod
     def set_user_role(cls, token: str, username: str, role: str) -> Dict[str, Any]:
         cls.verify_creator(token)
-        valid_roles = ["creator", "admin", "moderator", "vip", "mentor", "user"]
         target_role = role.lower().strip()
-        if target_role not in valid_roles:
-            raise ValueError(f"Недопустимая роль «{role}». Доступные роли: {', '.join(valid_roles)}")
+        all_role_ids = {r["id"] for r in cls.get_all_roles()}
+        if target_role not in all_role_ids:
+            raise ValueError(f"Недопустимая роль «{role}». Доступные роли: {', '.join(all_role_ids)}")
 
         target_uname = username.strip().lower()
         users = AuthService._load_users()

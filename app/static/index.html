@@ -1714,7 +1714,11 @@
         </button>
         <button onclick="switchDevPanelTab('titles')" id="dev-tab-btn-titles" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
           <i data-lucide="award" class="w-3.5 h-3.5"></i>
-          <span>Титулы магазина</span>
+          <span>Титулы & Выдача</span>
+        </button>
+        <button onclick="switchDevPanelTab('roles')" id="dev-tab-btn-roles" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
+          <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+          <span>Кастомные роли</span>
         </button>
         <button onclick="switchDevPanelTab('tasks')" id="dev-tab-btn-tasks" class="dev-panel-nav-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
           <i data-lucide="code-2" class="w-3.5 h-3.5"></i>
@@ -1780,12 +1784,55 @@
           </div>
         </div>
 
-        <!-- TAB 2: TITLES GENERATOR -->
+        <!-- TAB 2: TITLES & GRANTING -->
         <div id="dev-tab-titles" class="dev-panel-content-tab hidden space-y-4">
+          <!-- 1. Быстрая Выдача Титула -->
+          <div class="bg-slate-950 border border-amber-500/30 rounded-xl p-4 space-y-3">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2 text-amber-300">
+              <i data-lucide="crown" class="w-4 h-4 text-amber-400"></i>
+              👑 Выдать существующий титул пользователю или ВСЕМ
+            </h4>
+            <p class="text-slate-400 text-xs">Разблокируйте любой титул из каталога конкретному пользователю или мгновенно выдайте его всем участникам платформы.</p>
+
+            <form onsubmit="handleDevGrantTitleSubmit(event)" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-semibold text-slate-400 mb-1">Выберите титул из каталога:</label>
+                  <select id="dev-grant-title-select" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-400 mb-1">Логин получателя:</label>
+                  <input type="text" id="dev-grant-target-username" placeholder="Логин (например, AlexPy)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-amber-500 font-mono">
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div class="flex items-center gap-4">
+                  <label class="flex items-center gap-2 text-xs text-amber-300 font-bold cursor-pointer">
+                    <input type="checkbox" id="dev-grant-to-all-check" onchange="onDevGrantToAllToggle(this.checked)" class="rounded border-slate-700 bg-slate-900 text-amber-500">
+                    <span>📢 Выдать ВСЕМ пользователям</span>
+                  </label>
+                  <label class="flex items-center gap-2 text-xs text-slate-300 font-semibold cursor-pointer">
+                    <input type="checkbox" id="dev-grant-set-active-check" class="rounded border-slate-700 bg-slate-900 text-amber-500">
+                    <span>Сделать активным сразу</span>
+                  </label>
+                </div>
+
+                <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black hover:opacity-95 shadow-lg shadow-amber-500/20 text-xs flex items-center gap-1.5">
+                  <i data-lucide="award" class="w-4 h-4"></i>
+                  <span>Выдать титул</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- 2. Создание Нового Титула -->
           <form onsubmit="handleDevCreateTitleSubmit(event)" class="space-y-3 bg-slate-950 border border-slate-800 rounded-xl p-4">
             <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <i data-lucide="crown" class="w-4 h-4 text-yellow-400"></i>
-              Создать и добавить новый титул в Магазин
+              <i data-lucide="plus-circle" class="w-4 h-4 text-yellow-400"></i>
+              Создать и добавить новый уникальный титул в Каталог
             </h4>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1848,6 +1895,78 @@
               </button>
             </div>
           </form>
+        </div>
+
+        <!-- TAB: CUSTOM ROLES MANAGEMENT -->
+        <div id="dev-tab-roles" class="dev-panel-content-tab hidden space-y-5">
+          <!-- Create Role Form -->
+          <form onsubmit="handleDevCreateRoleSubmit(event)" class="space-y-3 bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <h4 class="font-bold text-white text-sm flex items-center gap-2 text-sky-400">
+              <i data-lucide="shield-plus" class="w-4 h-4"></i>
+              Создать новую уникальную роль
+            </h4>
+            <p class="text-slate-400 text-xs">Созданная роль сразу появится в списке назначения прав для пользователей и получит стильный бейдж.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">ID роли (англ., напр. designer, bug_hunter, teamlead):</label>
+                <input type="text" id="dev-role-id" required placeholder="teamlead" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:border-sky-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Отображаемое название (Тимлид, Тестировщик и т.д.):</label>
+                <input type="text" id="dev-role-name" required placeholder="Тимлид Проекта" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-sky-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Иконка (award, crown, shield, sparkles, flame, bug, code, zap):</label>
+                <input type="text" id="dev-role-icon" value="award" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-sky-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-400 mb-1">Стиль & Цвета (Tailwind):</label>
+                <select id="dev-role-color" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-sky-500">
+                  <option value="bg-sky-500/20 border-sky-500/50 text-sky-300">Неоново-голубой (Sky)</option>
+                  <option value="bg-purple-500/20 border-purple-500/50 text-purple-300">Магический фиолетовый (Purple)</option>
+                  <option value="bg-pink-500/20 border-pink-500/50 text-pink-300">Розовый неоновый (Pink)</option>
+                  <option value="bg-emerald-500/20 border-emerald-500/50 text-emerald-300">Изумрудный (Emerald)</option>
+                  <option value="bg-amber-500/20 border-amber-500/50 text-amber-300">Золотой (Amber)</option>
+                  <option value="bg-rose-500/20 border-rose-500/50 text-rose-300">Огненный рубин (Rose)</option>
+                  <option value="bg-indigo-500/20 border-indigo-500/50 text-indigo-300">Индиго (Indigo)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-400 mb-1">Описание роли / Назначение:</label>
+              <input type="text" id="dev-role-desc" placeholder="Выдается активным лидерам команд..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:border-sky-500">
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold shadow-md text-xs flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Создать и сохранить роль</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Existing Roles List -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                <i data-lucide="shield" class="w-4 h-4 text-amber-400"></i>
+                Все доступные роли платформы
+              </h4>
+              <button type="button" onclick="loadDevRolesList()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                <span>Обновить</span>
+              </button>
+            </div>
+
+            <div id="dev-roles-list-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Roles rendered dynamically -->
+            </div>
+          </div>
         </div>
 
         <!-- TAB 3: PRACTICE TASKS GENERATOR -->

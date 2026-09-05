@@ -248,6 +248,48 @@
         "completed": true,
         "claimed": false
       }
+    },
+    "api_user_1788641917": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788641917": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788641943": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788641943": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "api_user_1788642576": {
+      "community_action": {
+        "progress": 4,
+        "completed": true,
+        "claimed": false
+      }
+    },
+    "gamer_1788642576": {
+      "solve_task": {
+        "progress": 1,
+        "completed": true,
+        "claimed": false
+      }
     }
   }
 }

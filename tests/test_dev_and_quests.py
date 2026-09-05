@@ -174,5 +174,64 @@ class TestDevAndQuests(unittest.TestCase):
         self.assertIsNotNone(mod_user)
         self.assertEqual(mod_user.get("role"), "moderator")
 
+    def test_dev_grant_title_to_user_and_all(self):
+        from app.main import dev_grant_title, DevGrantTitleRequest
+        # Create a test title first
+        t_id = "test_grant_title_1"
+        req_title = DevCreateTitleRequest(
+            id=t_id,
+            name="Титул Повелитель Багов",
+            cost_stars=100,
+            rarity="legendary",
+            color_class="text-rose-400"
+        )
+        asyncio.run(dev_create_title(req_title, authorization=f"Bearer {self.creator_token}"))
+
+        # Grant to RegularDev
+        grant_req = DevGrantTitleRequest(username="RegularDev", title_id=t_id, set_active=True)
+        res = asyncio.run(dev_grant_title(grant_req, authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(res.get("success"))
+
+        u = AuthService.get_user_by_token(self.normal_token)
+        self.assertIn(t_id, u.get("unlocked_titles", []))
+        self.assertEqual(u.get("active_title_id"), t_id)
+
+        # Grant to all users
+        grant_all_req = DevGrantTitleRequest(title_id=t_id, grant_to_all=True)
+        res_all = asyncio.run(dev_grant_title(grant_all_req, authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(res_all.get("success"))
+
+    def test_dev_custom_roles_lifecycle(self):
+        from app.main import dev_get_roles, dev_create_role, dev_delete_role, DevCreateCustomRoleRequest, DevDeleteCustomRoleRequest
+        # 1. Create custom role
+        c_req = DevCreateCustomRoleRequest(
+            id="super_tester",
+            name="Супер Тестировщик",
+            icon="bug",
+            color_class="bg-pink-500/20 text-pink-300 border-pink-500/50",
+            description="Тестирует новые фичи"
+        )
+        c_res = asyncio.run(dev_create_role(c_req, authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(c_res.get("success"))
+        self.assertEqual(c_res.get("role", {}).get("name"), "Супер Тестировщик")
+
+        # 2. Get all roles
+        roles = asyncio.run(dev_get_roles(authorization=f"Bearer {self.creator_token}"))
+        role_ids = [r["id"] for r in roles]
+        self.assertIn("super_tester", role_ids)
+
+        # 3. Assign custom role to user
+        set_res = asyncio.run(dev_set_user_role(DevSetUserRoleRequest(username="RegularDev", role="super_tester"), authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(set_res.get("success"))
+        self.assertEqual(set_res.get("user", {}).get("role"), "super_tester")
+
+        # 4. Delete custom role
+        del_res = asyncio.run(dev_delete_role(DevDeleteCustomRoleRequest(role_id="super_tester"), authorization=f"Bearer {self.creator_token}"))
+        self.assertTrue(del_res.get("success"))
+
+        # User's role should fallback to user
+        u = AuthService.get_user_by_token(self.normal_token)
+        self.assertEqual(u.get("role"), "user")
+
 if __name__ == "__main__":
     unittest.main()

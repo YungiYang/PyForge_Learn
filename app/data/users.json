@@ -8,15 +8,16 @@
     "bio": "Создатель и главный разработчик платформы PyForge ⚡",
     "is_developer": true,
     "role": "creator",
-    "stars": 7999,
-    "total_earned_stars": 7999,
+    "stars": 10999,
+    "total_earned_stars": 10999,
     "active_title_id": "title_architect",
     "unlocked_titles": [
       "title_novice",
       "title_architect",
       "title_async",
       "title_bug_hunter",
-      "test_creator_title_999"
+      "test_creator_title_999",
+      "test_grant_title_1"
     ],
     "solved_tasks": [],
     "created_at": "2026-09-05T20:31:33Z"
@@ -31,10 +32,11 @@
     "is_developer": false,
     "role": "moderator",
     "stars": 7777,
-    "total_earned_stars": 7857,
-    "active_title_id": "title_novice",
+    "total_earned_stars": 7977,
+    "active_title_id": "test_grant_title_1",
     "unlocked_titles": [
-      "title_novice"
+      "title_novice",
+      "test_grant_title_1"
     ],
     "solved_tasks": [],
     "created_at": "2026-09-05T20:31:33Z"

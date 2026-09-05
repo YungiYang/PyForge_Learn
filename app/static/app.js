@@ -49,6 +49,7 @@ function getUserRole(userOrName) {
 
 function getUserBadgeHtml(userOrName, extraClass = '') {
   const role = getUserRole(userOrName);
+  if (!role || role === 'user') return '';
   if (role === 'creator') {
     return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/60 text-amber-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-amber-500/20 select-none ${extraClass}" title="👑 Создатель платформы PyForge"><i data-lucide="crown" class="w-3 h-3 text-amber-400 flex-shrink-0"></i><span class="bg-gradient-to-r from-amber-300 via-orange-300 to-rose-300 bg-clip-text text-transparent font-black">CREATOR</span></span>`;
   }
@@ -63,6 +64,12 @@ function getUserBadgeHtml(userOrName, extraClass = '') {
   }
   if (role === 'mentor') {
     return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-cyan-500/20 select-none ${extraClass}" title="🧠 Эксперт & Ментор"><i data-lucide="brain" class="w-3 h-3 text-cyan-400 flex-shrink-0"></i><span class="font-black">MENTOR</span></span>`;
+  }
+  const customRole = (window.devLoadedRoles || []).find(r => r.id === role);
+  if (customRole) {
+    const icon = customRole.icon || 'award';
+    const colorClass = customRole.color_class || 'bg-sky-500/20 border-sky-500/50 text-sky-300';
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tracking-wide select-none ${colorClass} ${extraClass}" title="${escapeHtml(customRole.name)}"><i data-lucide="${icon}" class="w-3 h-3 flex-shrink-0"></i><span>${escapeHtml(customRole.name.toUpperCase())}</span></span>`;
   }
   return '';
 }
@@ -3318,10 +3325,22 @@ function scrollToDailyQuests() {
 // --- CREATOR & DEVELOPER DEV PANEL (CHEVELS) ---
 // ==========================================
 
+// ==========================================
+// --- CREATOR & DEVELOPER DEV PANEL (CHEVELS) ---
+// ==========================================
+
 let devPanelActiveTab = 'stars';
 let devLoadedIdeas = [];
+window.devLoadedRoles = [
+  { id: 'creator', name: 'Создатель', icon: 'crown', color_class: 'from-amber-500/25 via-orange-500/25 to-rose-500/25 border-amber-500/60 text-amber-300', is_builtin: true },
+  { id: 'admin', name: 'Администратор', icon: 'shield-alert', color_class: 'bg-red-500/20 border-red-500/50 text-red-300', is_builtin: true },
+  { id: 'moderator', name: 'Модератор', icon: 'shield-check', color_class: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300', is_builtin: true },
+  { id: 'vip', name: 'VIP / Pro', icon: 'sparkles', color_class: 'bg-purple-500/20 border-purple-500/50 text-purple-300', is_builtin: true },
+  { id: 'mentor', name: 'Эксперт & Ментор', icon: 'brain', color_class: 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300', is_builtin: true },
+  { id: 'user', name: 'Пользователь', icon: 'user', color_class: 'text-slate-400 border-slate-700 bg-slate-800/40', is_builtin: true }
+];
 
-function openDevPanelModal() {
+async function openDevPanelModal() {
   if (!currentUser || !isDeveloperUser(currentUser)) {
     showToast('⛔ Доступ к Дев-панели разрешен только Создателю Chevels');
     return;
@@ -3330,6 +3349,7 @@ function openDevPanelModal() {
   if (!modal) return;
 
   modal.classList.remove('hidden');
+  await loadDevRolesList(true); // background load roles
   switchDevPanelTab(devPanelActiveTab || 'stars');
   lucide.createIcons();
 }
@@ -3363,7 +3383,11 @@ function switchDevPanelTab(tabName) {
   }
 
   // Lazy loaders
-  if (tabName === 'ideas') {
+  if (tabName === 'titles') {
+    loadDevGrantTitlesSelect();
+  } else if (tabName === 'roles') {
+    loadDevRolesList();
+  } else if (tabName === 'ideas') {
     loadDevIdeasSelect();
   } else if (tabName === 'users') {
     loadDevUsersTable();
@@ -3372,6 +3396,7 @@ function switchDevPanelTab(tabName) {
   lucide.createIcons();
 }
 
+// --- TAB 1: STARS & BALANCE ---
 async function handleDevAddStars(amount) {
   const targetUser = document.getElementById('dev-stars-target-user')?.value.trim() || 'Chevels';
   try {
@@ -3430,6 +3455,103 @@ function handleDevCustomSetStars() {
   handleDevSetStarsSubmit(val);
 }
 
+// --- TAB 2: TITLES MANAGEMENT & GRANTING ---
+async function loadDevGrantTitlesSelect() {
+  const select = document.getElementById('dev-grant-title-select');
+  if (!select) return;
+
+  try {
+    const res = await fetch('/api/practice/profile', { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const titles = data.shop_titles || [];
+
+    select.innerHTML = '';
+    titles.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.innerText = `${t.icon || '👑'} ${t.name} (${t.rarity} - ${t.cost_stars} ⭐)`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Ошибка загрузки титулов для выдачи:', err);
+  }
+}
+
+function onDevGrantToAllToggle(isChecked) {
+  const targetInput = document.getElementById('dev-grant-target-username');
+  if (!targetInput) return;
+  if (isChecked) {
+    targetInput.value = '';
+    targetInput.disabled = true;
+    targetInput.placeholder = '👑 Будет выдано ВСЕМ пользователям платформы';
+    targetInput.classList.add('opacity-50', 'bg-slate-950');
+  } else {
+    targetInput.disabled = false;
+    targetInput.placeholder = 'Логин (например, AlexPy)';
+    targetInput.classList.remove('opacity-50', 'bg-slate-950');
+  }
+}
+
+async function handleDevGrantTitleSubmit(event) {
+  event.preventDefault();
+  const titleId = document.getElementById('dev-grant-title-select')?.value;
+  const username = document.getElementById('dev-grant-target-username')?.value.trim();
+  const grantToAll = document.getElementById('dev-grant-to-all-check')?.checked || false;
+  const setActive = document.getElementById('dev-grant-set-active-check')?.checked || false;
+
+  if (!titleId) {
+    alert('Выберите титул для выдачи');
+    return;
+  }
+
+  if (!grantToAll && !username) {
+    alert('Укажите логин пользователя или включите опцию «Выдать ВСЕМ»');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dev/titles/grant', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        title_id: titleId,
+        username: username,
+        grant_to_all: grantToAll,
+        set_active: setActive
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message || 'Титул успешно выдан!');
+      await loadUserProfile();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+      if (currentTab === 'forum') loadForumTopics();
+      if (devPanelActiveTab === 'users') loadDevUsersTable();
+    } else {
+      alert(data.detail || 'Ошибка при выдаче титула');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function quickDevOpenGrantTitleForUser(targetUsername) {
+  switchDevPanelTab('titles');
+  setTimeout(() => {
+    const userInput = document.getElementById('dev-grant-target-username');
+    const toAllCheck = document.getElementById('dev-grant-to-all-check');
+    if (userInput) {
+      userInput.value = targetUsername;
+      userInput.disabled = false;
+    }
+    if (toAllCheck) {
+      toAllCheck.checked = false;
+    }
+    userInput?.focus();
+  }, 100);
+}
+
 async function handleDevCreateTitleSubmit(event) {
   event.preventDefault();
   const id = document.getElementById('dev-title-id').value.trim();
@@ -3458,11 +3580,12 @@ async function handleDevCreateTitleSubmit(event) {
     });
     const data = await res.json();
     if (res.ok && data.success) {
-      showToast(`👑 Титул «${name}» успешно создан и добавлен в Магазин!`);
+      showToast(`👑 Титул «${name}» успешно создан и добавлен в Каталог!`);
       document.getElementById('dev-title-id').value = '';
       document.getElementById('dev-title-name').value = '';
       document.getElementById('dev-title-desc').value = '';
       await loadUserProfile();
+      loadDevGrantTitlesSelect();
     } else {
       alert(data.detail || 'Ошибка создания титула');
     }
@@ -3471,6 +3594,128 @@ async function handleDevCreateTitleSubmit(event) {
   }
 }
 
+// --- TAB: CUSTOM ROLES MANAGEMENT ---
+async function loadDevRolesList(silent = false) {
+  try {
+    const res = await fetch('/api/dev/roles', { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const roles = await res.json();
+    window.devLoadedRoles = roles;
+
+    if (!silent) {
+      renderDevRolesList(roles);
+    }
+  } catch (err) {
+    console.error('Ошибка загрузки ролей:', err);
+  }
+}
+
+function renderDevRolesList(roles) {
+  const container = document.getElementById('dev-roles-list-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  roles.forEach(r => {
+    const card = document.createElement('div');
+    const isBuiltin = r.is_builtin;
+    const isCreatorRole = r.id === 'creator';
+    card.className = `p-3.5 rounded-xl border flex items-center justify-between gap-3 ${isBuiltin ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-900/90 border-sky-500/40 shadow-sm'}`;
+    
+    card.innerHTML = `
+      <div class="space-y-1 min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-extrabold ${r.color_class || 'bg-slate-800 text-white'}">
+            <i data-lucide="${r.icon || 'shield'}" class="w-3.5 h-3.5 flex-shrink-0"></i>
+            <span>${escapeHtml(r.name)}</span>
+          </span>
+          <span class="font-mono text-[10px] text-slate-400">id: ${escapeHtml(r.id)}</span>
+          ${isBuiltin ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">Системная</span>' : '<span class="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30">Кастомная ✨</span>'}
+        </div>
+        ${r.description ? `<p class="text-[11px] text-slate-400 truncate">${escapeHtml(r.description)}</p>` : ''}
+      </div>
+
+      <div class="flex-shrink-0">
+        ${!isBuiltin ? `
+          <button onclick="handleDevDeleteRole('${escapeHtml(r.id)}')" title="Удалить роль" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition text-xs flex items-center gap-1">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Удалить</span>
+          </button>
+        ` : `
+          <span class="text-[10px] text-slate-600 font-mono">Защищена</span>
+        `}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  lucide.createIcons();
+}
+
+async function handleDevCreateRoleSubmit(event) {
+  event.preventDefault();
+  const id = document.getElementById('dev-role-id').value.trim();
+  const name = document.getElementById('dev-role-name').value.trim();
+  const icon = document.getElementById('dev-role-icon').value.trim() || 'award';
+  const colorClass = document.getElementById('dev-role-color').value;
+  const desc = document.getElementById('dev-role-desc').value.trim();
+
+  if (!id || !name) {
+    alert('Заполните ID и название роли');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dev/roles/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        id: id,
+        name: name,
+        icon: icon,
+        color_class: colorClass,
+        description: desc
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`🛡️ Роль «${name}» успешно создана и доступна для выдачи!`);
+      document.getElementById('dev-role-id').value = '';
+      document.getElementById('dev-role-name').value = '';
+      document.getElementById('dev-role-desc').value = '';
+      await loadDevRolesList();
+      if (devPanelActiveTab === 'users') loadDevUsersTable();
+    } else {
+      alert(data.detail || 'Ошибка создания роли');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function handleDevDeleteRole(roleId) {
+  if (!confirm(`Вы действительно хотите удалить кастомную роль «${roleId}»? У пользователей с этой ролью права вернутся к стандартным.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dev/roles/delete', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ role_id: roleId })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message || 'Роль успешно удалена');
+      await loadDevRolesList();
+      if (devPanelActiveTab === 'users') loadDevUsersTable();
+    } else {
+      alert(data.detail || 'Ошибка удаления роли');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// --- TAB 3: PRACTICE TASKS GENERATOR ---
 async function handleDevCreateTaskSubmit(event) {
   event.preventDefault();
   const id = document.getElementById('dev-task-id').value.trim();
@@ -3524,6 +3769,7 @@ async function handleDevCreateTaskSubmit(event) {
   }
 }
 
+// --- TAB 4: IDEAS MODERATION ---
 async function loadDevIdeasSelect() {
   const select = document.getElementById('dev-ideas-select');
   if (!select) return;
@@ -3531,22 +3777,22 @@ async function loadDevIdeasSelect() {
   select.innerHTML = '<option value="">-- Загрузка предложений... --</option>';
 
   try {
-    const res = await fetch('/api/ideas', {
+    const res = await fetch('/api/ideas/list?status=all&sort_by=new', {
       headers: getAuthHeaders()
     });
     const ideas = await res.json();
-    devLoadedIdeas = ideas;
+    devLoadedIdeas = Array.isArray(ideas) ? ideas : [];
 
-    if (ideas.length === 0) {
+    if (devLoadedIdeas.length === 0) {
       select.innerHTML = '<option value="">(Пока нет предложений от сообщества)</option>';
       return;
     }
 
     select.innerHTML = '<option value="">-- Выберите предложение из списка --</option>';
-    ideas.forEach(idea => {
+    devLoadedIdeas.forEach(idea => {
       const opt = document.createElement('option');
       opt.value = idea.id;
-      opt.innerText = `[${idea.status.toUpperCase()}] ${idea.title} (от @${idea.author_username})`;
+      opt.innerText = `[${(idea.status || 'under_review').toUpperCase()}] ${idea.title} (от @${idea.author_username})`;
       select.appendChild(opt);
     });
   } catch (err) {
@@ -3616,6 +3862,7 @@ async function handleDevRespondIdeaSubmit(event) {
   }
 }
 
+// --- TAB 5: ALL USERS LIST & ROLES ASSIGNMENT ---
 async function loadDevUsersTable() {
   const tbody = document.getElementById('dev-users-table-body');
   if (!tbody) return;
@@ -3623,6 +3870,11 @@ async function loadDevUsersTable() {
   tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">Загрузка пользователей...</td></tr>';
 
   try {
+    // Make sure we have the latest roles
+    if (!window.devLoadedRoles || window.devLoadedRoles.length === 0) {
+      await loadDevRolesList(true);
+    }
+
     const res = await fetch('/api/dev/users', {
       headers: getAuthHeaders()
     });
@@ -3634,11 +3886,24 @@ async function loadDevUsersTable() {
       return;
     }
 
+    const allRoles = window.devLoadedRoles || [];
+
     tbody.innerHTML = '';
     users.forEach(u => {
       const isCreator = (u.username || '').toLowerCase() === 'chevels' || u.role === 'creator';
       const currentRole = u.role || (isCreator ? 'creator' : 'user');
       const badgeHtml = getUserBadgeHtml(u);
+
+      // Build options from all available roles
+      let roleOptionsHtml = '';
+      allRoles.forEach(r => {
+        roleOptionsHtml += `<option value="${escapeHtml(r.id)}" ${currentRole === r.id ? 'selected' : ''}>${escapeHtml(r.name)} (${escapeHtml(r.id)})</option>`;
+      });
+
+      // If current role is not in list
+      if (!allRoles.some(r => r.id === currentRole)) {
+        roleOptionsHtml += `<option value="${escapeHtml(currentRole)}" selected>${escapeHtml(currentRole)}</option>`;
+      }
 
       const row = document.createElement('tr');
       row.className = 'hover:bg-slate-900/60 transition';
@@ -3655,12 +3920,7 @@ async function loadDevUsersTable() {
         </td>
         <td class="p-2.5">
           <select onchange="handleDevChangeUserRole('${escapeHtml(u.username)}', this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-[11px] font-bold focus:outline-none focus:border-amber-500 cursor-pointer">
-            <option value="creator" ${currentRole === 'creator' ? 'selected' : ''}>👑 Создатель (Creator)</option>
-            <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>⚡ Админ (Admin)</option>
-            <option value="moderator" ${currentRole === 'moderator' ? 'selected' : ''}>🛡️ Модератор (Mod)</option>
-            <option value="vip" ${currentRole === 'vip' ? 'selected' : ''}>⭐ VIP (Pro)</option>
-            <option value="mentor" ${currentRole === 'mentor' ? 'selected' : ''}>🧠 Ментор (Mentor)</option>
-            <option value="user" ${currentRole === 'user' ? 'selected' : ''}>👤 Пользователь (User)</option>
+            ${roleOptionsHtml}
           </select>
         </td>
         <td class="p-2.5 font-bold text-amber-400 font-mono">Ур. ${u.level || 1}</td>
@@ -3668,9 +3928,12 @@ async function loadDevUsersTable() {
         <td class="p-2.5 font-mono text-sky-400">${(u.xp || 0).toLocaleString()} XP</td>
         <td class="p-2.5">
           <div class="flex items-center gap-1.5">
-            <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" title="Начислить +1,000 ⭐" class="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
-              <i data-lucide="plus" class="w-3 h-3"></i>
-              <span>1k ⭐</span>
+            <button onclick="quickDevOpenGrantTitleForUser('${escapeHtml(u.username)}')" title="Выдать титул этому пользователю" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
+              <i data-lucide="crown" class="w-3 h-3"></i>
+              <span>Титул</span>
+            </button>
+            <button onclick="handleDevQuickGiveStarsToUser('${escapeHtml(u.username)}', 1000)" title="Начислить +1,000 ⭐" class="px-2 py-1 bg-slate-800 hover:bg-amber-500/15 border border-slate-700 hover:border-amber-500/30 text-amber-300 font-bold rounded-lg text-[10px] transition flex items-center gap-1">
+              +1k ⭐
             </button>
             <button onclick="document.getElementById('dev-stars-target-user').value = '${escapeHtml(u.username)}'; switchDevPanelTab('stars');" title="Управлять точным балансом в табе Звёзды" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-lg text-[10px] transition">
               ⚙️

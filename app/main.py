@@ -188,6 +188,22 @@ class DevSetUserRoleRequest(BaseModel):
     username: str
     role: str
 
+class DevGrantTitleRequest(BaseModel):
+    username: Optional[str] = None
+    title_id: str
+    set_active: Optional[bool] = False
+    grant_to_all: Optional[bool] = False
+
+class DevCreateCustomRoleRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    icon: Optional[str] = "award"
+    color_class: Optional[str] = "bg-sky-500/20 border-sky-500/50 text-sky-300"
+    description: Optional[str] = ""
+
+class DevDeleteCustomRoleRequest(BaseModel):
+    role_id: str
+
 class ClaimQuestRequest(BaseModel):
     quest_id: str
 
@@ -286,6 +302,22 @@ async def dev_delete_title(req: DevDeleteTitleRequest, authorization: Optional[s
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/dev/titles/grant")
+async def dev_grant_title(req: DevGrantTitleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.grant_title_to_user(
+            token=t,
+            username=req.username or "",
+            title_id=req.title_id,
+            set_active=req.set_active or False,
+            grant_to_all=req.grant_to_all or False
+        )
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/dev/tasks/create")
 async def dev_create_task(req: DevCreateTaskRequest, authorization: Optional[str] = Header(None)):
     t = extract_token(authorization)
@@ -325,6 +357,36 @@ async def dev_set_user_role(req: DevSetUserRoleRequest, authorization: Optional[
     t = extract_token(authorization)
     try:
         return DevService.set_user_role(t, req.username, req.role)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/dev/roles")
+async def dev_get_roles(authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.get_all_roles()
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/roles/create")
+async def dev_create_role(req: DevCreateCustomRoleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.create_custom_role(t, req.model_dump())
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/roles/delete")
+async def dev_delete_role(req: DevDeleteCustomRoleRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        return DevService.delete_custom_role(t, req.role_id)
     except PermissionError as pe:
         raise HTTPException(status_code=403, detail=str(pe))
     except Exception as e:

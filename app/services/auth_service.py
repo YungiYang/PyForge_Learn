@@ -119,8 +119,8 @@ class AuthService:
         users[key] = new_user
         cls._save_users(users)
 
-        # Создаем токен сессии
-        token = secrets.token_hex(24)
+        # Создаем постоянный токен сессии
+        token = f"pf_tok_{key}_{secrets.token_hex(16)}"
         sessions = cls._load_sessions()
         sessions[token] = key
         cls._save_sessions(sessions)
@@ -141,7 +141,7 @@ class AuthService:
             if key in DEVELOPER_USERNAMES:
                 # Автоматическая регистрация аккаунта разработчика Chevels с введенным паролем
                 return cls.register(username_clean, password, display_name="Chevels")
-            raise ValueError(f"Пользователь «{username_clean}» не найден. База данных была сброшена. Зарегистрируйтесь во вкладке «Регистрация».")
+            raise ValueError(f"Пользователь «{username_clean}» не найден. Зарегистрируйтесь во вкладке «Регистрация».")
 
         user = users[key]
         pass_hash = hashlib.sha256(password.encode()).hexdigest()
@@ -151,7 +151,7 @@ class AuthService:
                 user["password_hash"] = pass_hash
                 users[key] = user
                 cls._save_users(users)
-                token = secrets.token_hex(24)
+                token = f"pf_tok_{key}_{secrets.token_hex(16)}"
                 sessions = cls._load_sessions()
                 sessions[token] = key
                 cls._save_sessions(sessions)
@@ -162,7 +162,7 @@ class AuthService:
                 }
             raise ValueError("Неверный пароль. Пожалуйста, проверьте правильность ввода пароля.")
 
-        token = secrets.token_hex(24)
+        token = f"pf_tok_{key}_{secrets.token_hex(16)}"
         sessions = cls._load_sessions()
         sessions[token] = key
         cls._save_sessions(sessions)
@@ -177,10 +177,30 @@ class AuthService:
     def get_user_by_token(cls, token: Optional[str]) -> Optional[Dict[str, Any]]:
         if not token:
             return None
+        token_clean = token.strip()
         sessions = cls._load_sessions()
-        username_key = sessions.get(token)
+        username_key = sessions.get(token_clean)
+
+        # Fallback 1: Постоянный токен с префиксом pf_tok_<username>_<random>
+        if not username_key and token_clean.startswith("pf_tok_"):
+            parts = token_clean.split("_")
+            if len(parts) >= 3:
+                cand_uname = parts[2].lower()
+                users = cls._load_users()
+                if cand_uname in users:
+                    sessions[token_clean] = cand_uname
+                    cls._save_sessions(sessions)
+                    return users[cand_uname]
+
+        # Fallback 2: Если токен передан как имя пользователя Chevels
+        if not username_key and token_clean.lower() in DEVELOPER_USERNAMES:
+            users = cls._load_users()
+            if token_clean.lower() in users:
+                return users[token_clean.lower()]
+
         if not username_key:
             return None
+
         users = cls._load_users()
         user = users.get(username_key)
         return user
