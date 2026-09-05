@@ -1,5 +1,139 @@
 [
   {
+    "id": "topic_1788638234_6e0fd1",
+    "title": "Тестовый вопрос по FastAPI и Asyncio",
+    "category": "web",
+    "author_username": "author_1788638234",
+    "author_display_name": "author_1788638234",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=author_1788638234",
+    "author_title": "🐍 Pythonist",
+    "author_is_dev": false,
+    "content": "Как настроить middleware для проверки токенов?",
+    "tags": [
+      "fastapi",
+      "test"
+    ],
+    "views": 2,
+    "upvotes": 2,
+    "upvoted_by": [
+      "author_1788638234",
+      "comm_1788638234"
+    ],
+    "created_at": "2026-09-05T19:57:14Z",
+    "comments": [
+      {
+        "id": "comm_1788638234_dbea97",
+        "author_username": "comm_1788638234",
+        "author_display_name": "comm_1788638234",
+        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=comm_1788638234",
+        "author_title": "🐍 Pythonist",
+        "author_is_dev": false,
+        "content": "Используйте `Depends` или `HTTPBearer`!",
+        "upvotes": 0,
+        "created_at": "2026-09-05T19:57:14Z"
+      }
+    ]
+  },
+  {
+    "id": "topic_1788638233_b75fc8",
+    "title": "FastAPI Route Testing",
+    "category": "web",
+    "author_username": "api_user_1788638233",
+    "author_display_name": "api_user_1788638233",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638233",
+    "author_title": "🐍 Pythonist",
+    "author_is_dev": false,
+    "content": "Testing route creation and comments.",
+    "tags": [
+      "fastapi",
+      "routes"
+    ],
+    "views": 1,
+    "upvotes": 0,
+    "upvoted_by": [],
+    "created_at": "2026-09-05T19:57:13Z",
+    "comments": [
+      {
+        "id": "comm_1788638233_f084d5",
+        "author_username": "api_user_1788638233",
+        "author_display_name": "api_user_1788638233",
+        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638233",
+        "author_title": "🐍 Pythonist",
+        "author_is_dev": false,
+        "content": "Отличный вопрос!",
+        "upvotes": 0,
+        "created_at": "2026-09-05T19:57:13Z"
+      }
+    ]
+  },
+  {
+    "id": "topic_1788638214_be8c48",
+    "title": "Тестовый вопрос по FastAPI и Asyncio",
+    "category": "web",
+    "author_username": "author_1788638214",
+    "author_display_name": "author_1788638214",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=author_1788638214",
+    "author_title": "🐍 Pythonist",
+    "author_is_dev": false,
+    "content": "Как настроить middleware для проверки токенов?",
+    "tags": [
+      "fastapi",
+      "test"
+    ],
+    "views": 2,
+    "upvotes": 2,
+    "upvoted_by": [
+      "author_1788638214",
+      "comm_1788638214"
+    ],
+    "created_at": "2026-09-05T19:56:54Z",
+    "comments": [
+      {
+        "id": "comm_1788638214_1655a7",
+        "author_username": "comm_1788638214",
+        "author_display_name": "comm_1788638214",
+        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=comm_1788638214",
+        "author_title": "🐍 Pythonist",
+        "author_is_dev": false,
+        "content": "Используйте `Depends` или `HTTPBearer`!",
+        "upvotes": 0,
+        "created_at": "2026-09-05T19:56:54Z"
+      }
+    ]
+  },
+  {
+    "id": "topic_1788638214_d8f61d",
+    "title": "FastAPI Route Testing",
+    "category": "web",
+    "author_username": "api_user_1788638214",
+    "author_display_name": "api_user_1788638214",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638214",
+    "author_title": "🐍 Pythonist",
+    "author_is_dev": false,
+    "content": "Testing route creation and comments.",
+    "tags": [
+      "fastapi",
+      "routes"
+    ],
+    "views": 1,
+    "upvotes": 0,
+    "upvoted_by": [],
+    "created_at": "2026-09-05T19:56:54Z",
+    "comments": [
+      {
+        "id": "comm_1788638214_952eee",
+        "author_username": "api_user_1788638214",
+        "author_display_name": "api_user_1788638214",
+        "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638214",
+        "author_title": "🐍 Pythonist",
+        "author_is_dev": false,
+        "content": "Отличный вопрос!",
+        "upvotes": 0,
+        "created_at": "2026-09-05T19:56:54Z"
+      }
+    ]
+  },
+  {
     "id": "topic_1788637937_d363be",
     "title": "Тестовый вопрос по FastAPI и Asyncio",
     "category": "web",

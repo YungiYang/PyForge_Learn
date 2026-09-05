@@ -1752,9 +1752,6 @@ setInterval(() => {
 // --- AUTHENTICATION & USER PROFILE ---
 // ==========================================
 
-let currentAvatarStyle = 'bottts';
-let currentAvatarSeed = '';
-
 async function checkAuthState() {
   const token = getAuthToken();
   if (!token) {

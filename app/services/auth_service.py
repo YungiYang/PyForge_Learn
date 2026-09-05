@@ -73,6 +73,22 @@ class AuthService:
         users = cls._load_users()
         key = username_clean.lower()
         if key in users:
+            if key in DEVELOPER_USERNAMES:
+                users[key]["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+                if display_name:
+                    users[key]["display_name"] = display_name.strip()
+                users[key]["is_developer"] = True
+                users[key]["role"] = "creator"
+                cls._save_users(users)
+                token = secrets.token_hex(24)
+                sessions = cls._load_sessions()
+                sessions[token] = key
+                cls._save_sessions(sessions)
+                return {
+                    "success": True,
+                    "token": token,
+                    "user": cls.sanitize_user(users[key])
+                }
             raise ValueError(f"Пользователь с именем «{username_clean}» уже зарегистрирован")
 
         pass_hash = hashlib.sha256(password.encode()).hexdigest()

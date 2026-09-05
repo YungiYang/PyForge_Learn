@@ -1,5 +1,69 @@
 [
   {
+    "id": "idea_1788638234_994cf5",
+    "title": "Интеграция с GitHub Gist",
+    "description": "Возможность экспортировать сниппеты прямо в свой аккаунт GitHub Gist.",
+    "category": "tools",
+    "author_username": "idea_user_1788638234",
+    "author_display_name": "idea_user_1788638234",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=idea_user_1788638234",
+    "status": "under_review",
+    "status_label": "💡 На рассмотрении",
+    "votes": 1,
+    "voted_by": [
+      "idea_user_1788638234"
+    ],
+    "dev_response": "Спасибо за идею! Создатели PyForge уже изучают ваше предложение.",
+    "created_at": "2026-09-05T19:57:14Z"
+  },
+  {
+    "id": "idea_1788638233_46fe41",
+    "title": "Новая фича в конструктор",
+    "description": "Подробности идеи",
+    "category": "general",
+    "author_username": "api_user_1788638233",
+    "author_display_name": "api_user_1788638233",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638233",
+    "status": "under_review",
+    "status_label": "💡 На рассмотрении",
+    "votes": 0,
+    "voted_by": [],
+    "dev_response": "Спасибо за идею! Создатели PyForge уже изучают ваше предложение.",
+    "created_at": "2026-09-05T19:57:13Z"
+  },
+  {
+    "id": "idea_1788638215_597f48",
+    "title": "Интеграция с GitHub Gist",
+    "description": "Возможность экспортировать сниппеты прямо в свой аккаунт GitHub Gist.",
+    "category": "tools",
+    "author_username": "idea_user_1788638214",
+    "author_display_name": "idea_user_1788638214",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=idea_user_1788638214",
+    "status": "under_review",
+    "status_label": "💡 На рассмотрении",
+    "votes": 1,
+    "voted_by": [
+      "idea_user_1788638214"
+    ],
+    "dev_response": "Спасибо за идею! Создатели PyForge уже изучают ваше предложение.",
+    "created_at": "2026-09-05T19:56:55Z"
+  },
+  {
+    "id": "idea_1788638214_5ce923",
+    "title": "Новая фича в конструктор",
+    "description": "Подробности идеи",
+    "category": "general",
+    "author_username": "api_user_1788638214",
+    "author_display_name": "api_user_1788638214",
+    "author_avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788638214",
+    "status": "under_review",
+    "status_label": "💡 На рассмотрении",
+    "votes": 0,
+    "voted_by": [],
+    "dev_response": "Спасибо за идею! Создатели PyForge уже изучают ваше предложение.",
+    "created_at": "2026-09-05T19:56:54Z"
+  },
+  {
     "id": "idea_1788637937_766d26",
     "title": "Интеграция с GitHub Gist",
     "description": "Возможность экспортировать сниппеты прямо в свой аккаунт GitHub Gist.",
