@@ -275,10 +275,37 @@ class TestPyForge(unittest.TestCase):
         self.assertIsNotNone(user)
         self.assertEqual(user["username"], test_user)
 
-        # 7. Logout
-        logout_ok = AuthService.logout(login_res["token"])
+        # 7. Update profile (avatar, display name, bio)
+        upd_res = AuthService.update_profile(
+            token=login_res["token"],
+            display_name="Новый Ник",
+            avatar="https://api.dicebear.com/7.x/pixel-art/svg?seed=Hacker",
+            bio="Python & AI Enthusiast",
+            new_password="new_password_123"
+        )
+        self.assertTrue(upd_res["success"])
+        self.assertEqual(upd_res["user"]["display_name"], "Новый Ник")
+        self.assertIn("pixel-art", upd_res["user"]["avatar"])
+        self.assertEqual(upd_res["user"]["bio"], "Python & AI Enthusiast")
+
+        # 8. Login with new password
+        login_new_res = AuthService.login(test_user, "new_password_123")
+        self.assertTrue(login_new_res["success"])
+
+        # 9. Logout
+        logout_ok = AuthService.logout(login_new_res["token"])
         self.assertTrue(logout_ok)
-        self.assertIsNone(AuthService.get_user_by_token(login_res["token"]))
+        self.assertIsNone(AuthService.get_user_by_token(login_new_res["token"]))
+
+        # 10. Developer status for Chevels
+        self.assertTrue(AuthService.is_developer("Chevels"))
+        self.assertTrue(AuthService.is_developer("chevels"))
+        self.assertFalse(AuthService.is_developer("random_user"))
+
+        dev_reg = AuthService.register("Chevels", "dev_pass_123", "Chevels (Creator)")
+        self.assertTrue(dev_reg["user"]["is_developer"])
+        self.assertEqual(dev_reg["user"]["role"], "creator")
+        self.assertEqual(dev_reg["user"]["active_title_id"], "title_architect")
 
     def test_leaderboard_service(self):
         from app.services.leaderboard_service import LeaderboardService
@@ -416,6 +443,7 @@ class TestPyForge(unittest.TestCase):
             auth_register,
             auth_login,
             auth_me,
+            auth_update_profile,
             get_leaderboard,
             get_forum_categories,
             list_forum_topics,
@@ -427,6 +455,7 @@ class TestPyForge(unittest.TestCase):
             vote_idea,
             RegisterRequest,
             LoginRequest,
+            UpdateProfileRequest,
             CreateTopicRequest,
             AddCommentRequest,
             UpvoteTopicRequest,
@@ -451,6 +480,13 @@ class TestPyForge(unittest.TestCase):
         me_res = asyncio.run(auth_me(authorization=f"Bearer {token}", token=None))
         self.assertTrue(me_res["success"])
         self.assertEqual(me_res["user"]["username"], u)
+
+        # 3.1 Update Profile API
+        upd_dto = UpdateProfileRequest(display_name="Super API Dev", bio="Testing profile update API", avatar="https://api.dicebear.com/7.x/adventurer/svg?seed=Ninja")
+        upd_res = asyncio.run(auth_update_profile(upd_dto, authorization=f"Bearer {token}", token=None))
+        self.assertTrue(upd_res["success"])
+        self.assertEqual(upd_res["user"]["display_name"], "Super API Dev")
+        self.assertEqual(upd_res["user"]["bio"], "Testing profile update API")
 
         # 4. Leaderboard API
         lb_res = asyncio.run(get_leaderboard(authorization=f"Bearer {token}", token=None))

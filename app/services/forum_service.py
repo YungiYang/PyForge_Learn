@@ -100,6 +100,7 @@ class ForumService:
         user_info = AuthService.get_user_by_token(author_username) or {}
         display_name = user_info.get("display_name") or author_username
         avatar = user_info.get("avatar") or f"https://api.dicebear.com/7.x/bottts/svg?seed={author_username}"
+        is_dev = AuthService.is_developer(author_username)
 
         topic_id = f"topic_{int(time.time())}_{secrets.token_hex(3)}"
         new_topic = {
@@ -109,7 +110,8 @@ class ForumService:
             "author_username": author_username,
             "author_display_name": display_name,
             "author_avatar": avatar,
-            "author_title": "🐍 Pythonist",
+            "author_title": "👑 Создатель & Lead Dev" if is_dev else "🐍 Pythonist",
+            "author_is_dev": is_dev,
             "content": content.strip(),
             "tags": tags or [category],
             "views": 1,
@@ -131,6 +133,7 @@ class ForumService:
                 user_info = AuthService.get_user_by_token(author_username) or {}
                 display_name = user_info.get("display_name") or author_username
                 avatar = user_info.get("avatar") or f"https://api.dicebear.com/7.x/bottts/svg?seed={author_username}"
+                is_dev = AuthService.is_developer(author_username)
 
                 comment_id = f"comm_{int(time.time())}_{secrets.token_hex(3)}"
                 comment = {
@@ -138,7 +141,8 @@ class ForumService:
                     "author_username": author_username,
                     "author_display_name": display_name,
                     "author_avatar": avatar,
-                    "author_title": "🐍 Pythonist",
+                    "author_title": "👑 Создатель & Lead Dev" if is_dev else "🐍 Pythonist",
+                    "author_is_dev": is_dev,
                     "content": content.strip(),
                     "upvotes": 0,
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

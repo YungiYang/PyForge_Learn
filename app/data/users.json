@@ -1,17 +1,1 @@
-{
-  "chevels": {
-    "id": "user_1788636668_87a49164",
-    "username": "Chevels",
-    "display_name": "Chevel",
-    "password_hash": "eccbb82c04a15bc2c30422cc9eaf35a2e85bcbe8f585b3f89699253f9589f375",
-    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Chevels",
-    "stars": 0,
-    "total_earned_stars": 0,
-    "active_title_id": "title_novice",
-    "unlocked_titles": [
-      "title_novice"
-    ],
-    "solved_tasks": [],
-    "created_at": "2026-09-05T19:31:08Z"
-  }
-}
+{}

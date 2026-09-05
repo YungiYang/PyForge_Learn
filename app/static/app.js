@@ -27,6 +27,21 @@ function getAuthHeaders() {
   return headers;
 }
 
+// Developer & Creator Badge Helpers (Chevels & Core Devs)
+function isDeveloperUser(userOrName) {
+  if (!userOrName) return false;
+  if (typeof userOrName === 'string') {
+    return userOrName.toLowerCase() === 'chevels';
+  }
+  const uname = (userOrName.username || '').toLowerCase();
+  return uname === 'chevels' || userOrName.is_developer === true || userOrName.role === 'creator';
+}
+
+function getDeveloperBadgeHtml(userOrName, extraClass = '') {
+  if (!isDeveloperUser(userOrName)) return '';
+  return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 border border-amber-500/50 text-amber-300 font-extrabold text-[10px] tracking-wide shadow-sm shadow-amber-500/20 select-none ${extraClass}" title="Создатель & Главный разработчик PyForge"><i data-lucide="shield-check" class="w-3 h-3 text-amber-400 flex-shrink-0"></i><span class="bg-gradient-to-r from-amber-300 via-orange-300 to-rose-300 bg-clip-text text-transparent font-black">DEV</span></span>`;
+}
+
 // Playground Code Presets
 const PLAYGROUND_PRESETS = {
   async: `import asyncio
@@ -137,6 +152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeSearchModal();
       closeDirectoryGenerateModal();
       closeAuthModal();
+      closeProfileModal();
+      closeTitleShopModal();
       closeNewTopicModal();
       closeTopicDetailModal();
       closeNewIdeaModal();
@@ -1735,9 +1752,13 @@ setInterval(() => {
 // --- AUTHENTICATION & USER PROFILE ---
 // ==========================================
 
+let currentAvatarStyle = 'bottts';
+let currentAvatarSeed = '';
+
 async function checkAuthState() {
   const token = getAuthToken();
   if (!token) {
+    currentUser = null;
     updateHeaderUserWidget(null);
     return;
   }
@@ -1756,6 +1777,7 @@ async function checkAuthState() {
     }
   } catch (err) {
     console.error('Ошибка проверки токена:', err);
+    updateHeaderUserWidget(null);
   }
 }
 
@@ -1766,14 +1788,27 @@ function updateHeaderUserWidget(user) {
   if (user && user.username) {
     const avatar = user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`;
     const displayName = user.display_name || user.username;
+    const isDev = isDeveloperUser(user);
+    const devBadge = getDeveloperBadgeHtml(user);
+
     container.innerHTML = `
-      <div class="flex items-center space-x-2 pl-1">
-        <div class="flex items-center space-x-2 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-xs shadow-sm">
-          <img src="${avatar}" class="w-6 h-6 rounded-lg border border-slate-600 bg-slate-900" alt="${escapeHtml(displayName)}">
-          <span class="font-bold text-white max-w-[110px] truncate">${escapeHtml(displayName)}</span>
-        </div>
-        <button onclick="logoutUser()" title="Выйти из аккаунта" class="p-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
-          <i data-lucide="log-out" class="w-4 h-4"></i>
+      <div class="flex items-center space-x-1.5 sm:space-x-2 pl-1">
+        <button onclick="openProfileModal()" title="Настройки профиля и аватара" class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border ${isDev ? 'border-amber-500/60 shadow-md shadow-amber-500/10' : 'border-slate-700 hover:border-sky-500/50'} text-xs shadow-sm transition group">
+          <div class="relative">
+            <img src="${avatar}" class="w-6 h-6 rounded-lg border ${isDev ? 'border-amber-400' : 'border-slate-600'} bg-slate-900 object-cover flex-shrink-0" alt="${escapeHtml(displayName)}">
+            ${isDev ? '<span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></span>' : ''}
+          </div>
+          <div class="text-left hidden sm:block">
+            <div class="flex items-center gap-1 font-bold text-white group-hover:text-sky-300 transition max-w-[125px] truncate leading-tight">
+              <span>${escapeHtml(displayName)}</span>
+              ${devBadge}
+            </div>
+            <div class="text-[9px] ${isDev ? 'text-amber-300 font-semibold flex items-center gap-0.5' : 'text-slate-400'}">${isDev ? '👑 Создатель' : 'Профиль & Аватар ⚙️'}</div>
+          </div>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 group-hover:text-white transition ml-0.5"></i>
+        </button>
+        <button onclick="logoutUser()" title="Выйти из аккаунта" class="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     `;
@@ -1865,6 +1900,7 @@ async function handleLoginSubmit(event) {
 
     localStorage.setItem('pyforge_token', data.token);
     currentUser = data.user;
+    updateHeaderUserWidget(currentUser);
     closeAuthModal();
     showToast(`С возвращением, ${currentUser.display_name || currentUser.username}! 👋`);
     await loadUserProfile();
@@ -1909,6 +1945,7 @@ async function handleRegisterSubmit(event) {
 
     localStorage.setItem('pyforge_token', data.token);
     currentUser = data.user;
+    updateHeaderUserWidget(currentUser);
     closeAuthModal();
     showToast(`Добро пожаловать в PyForge, ${currentUser.display_name || currentUser.username}! 🚀`);
     await loadUserProfile();
@@ -1936,10 +1973,242 @@ async function logoutUser() {
   }
   localStorage.removeItem('pyforge_token');
   currentUser = null;
+  updateHeaderUserWidget(null);
+  closeProfileModal();
   showToast('Вы успешно вышли из аккаунта');
   await loadUserProfile();
   await loadPracticeTasks();
   if (currentTab === 'leaderboard') loadLeaderboard();
+}
+
+// --- PROFILE SETTINGS & AVATAR STUDIO MODAL ---
+
+function openProfileModal() {
+  if (!currentUser) {
+    openAuthModal('login');
+    return;
+  }
+  const modal = document.getElementById('profile-modal');
+  if (!modal) return;
+
+  // Reset alert messages
+  const errBox = document.getElementById('profile-error-box');
+  const okBox = document.getElementById('profile-success-box');
+  if (errBox) errBox.classList.add('hidden');
+  if (okBox) okBox.classList.add('hidden');
+
+  // Populate data
+  const avatar = currentUser.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.username}`;
+  const displayName = currentUser.display_name || currentUser.username;
+  const isDev = isDeveloperUser(currentUser);
+  const devBadge = getDeveloperBadgeHtml(currentUser);
+  
+  document.getElementById('profile-modal-avatar-preview').src = avatar;
+  document.getElementById('profile-modal-display-name').innerHTML = `<span>${escapeHtml(displayName)}</span> ${devBadge}`;
+  document.getElementById('profile-modal-username').innerText = `@${currentUser.username}`;
+  document.getElementById('profile-modal-stars').innerText = currentUser.stars || 0;
+  document.getElementById('profile-modal-tasks').innerText = (currentUser.solved_tasks || []).length;
+  
+  const titleBadge = document.getElementById('profile-modal-title-badge');
+  if (titleBadge && isDev) {
+    titleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-300 border border-amber-500/50 shadow-sm";
+    titleBadge.innerText = "👑 Создатель & Lead Dev";
+  }
+  
+  // Inputs
+  document.getElementById('profile-displayname-input').value = displayName;
+  document.getElementById('profile-bio-input').value = currentUser.bio || '';
+  document.getElementById('profile-new-password').value = '';
+
+  // Parse current avatar
+  currentAvatarSeed = currentUser.username;
+  if (avatar.startsWith('http')) {
+    if (avatar.includes('api.dicebear.com')) {
+      const match = avatar.match(/\/7\.x\/([a-z\-]+)\/svg\?seed=([^&]+)/);
+      if (match) {
+        currentAvatarStyle = match[1];
+        currentAvatarSeed = decodeURIComponent(match[2]);
+        document.getElementById('profile-avatar-input').value = currentAvatarSeed;
+      } else {
+        document.getElementById('profile-avatar-input').value = avatar;
+      }
+    } else {
+      document.getElementById('profile-avatar-input').value = avatar;
+    }
+  } else {
+    document.getElementById('profile-avatar-input').value = avatar;
+  }
+
+  highlightAvatarStyleButton(currentAvatarStyle);
+  populateProfileTitleSelect();
+
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById('profile-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function highlightAvatarStyleButton(style) {
+  document.querySelectorAll('.avatar-style-btn').forEach(btn => {
+    const s = btn.getAttribute('data-style');
+    if (s === style) {
+      btn.className = 'avatar-style-btn p-1.5 rounded-xl border border-sky-500 bg-sky-500/15 flex flex-col items-center gap-1 transition shadow-sm';
+    } else {
+      btn.className = 'avatar-style-btn p-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:border-slate-700 flex flex-col items-center gap-1 transition';
+    }
+  });
+}
+
+function selectAvatarStyle(style) {
+  currentAvatarStyle = style;
+  highlightAvatarStyleButton(style);
+  const inputVal = document.getElementById('profile-avatar-input').value.trim();
+  const newUrl = buildAvatarUrl(currentAvatarStyle, inputVal || currentUser?.username || 'user');
+  updateAvatarPreview(newUrl);
+}
+
+function randomizeAvatar() {
+  const randomSeeds = ['CyberPy', 'Pythonista', 'AsyncMaster', 'ByteCoder', 'DevWizard', 'QuantumPy', 'CodeAlchemist', 'FastDev', 'SnakeHero', 'TurboPython'];
+  const randNum = Math.floor(Math.random() * 9000) + 1000;
+  const pickedSeed = randomSeeds[Math.floor(Math.random() * randomSeeds.length)] + '_' + randNum;
+  currentAvatarSeed = pickedSeed;
+  document.getElementById('profile-avatar-input').value = pickedSeed;
+  const newUrl = buildAvatarUrl(currentAvatarStyle, pickedSeed);
+  updateAvatarPreview(newUrl);
+}
+
+function onAvatarInputChange(val) {
+  const clean = val.trim();
+  const newUrl = buildAvatarUrl(currentAvatarStyle, clean || currentUser?.username || 'user');
+  updateAvatarPreview(newUrl);
+}
+
+function buildAvatarUrl(style, seedOrUrl) {
+  if (seedOrUrl.startsWith('http://') || seedOrUrl.startsWith('https://')) {
+    return seedOrUrl;
+  }
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seedOrUrl)}`;
+}
+
+function updateAvatarPreview(url) {
+  const img = document.getElementById('profile-modal-avatar-preview');
+  if (img) img.src = url;
+}
+
+function populateProfileTitleSelect() {
+  const sel = document.getElementById('profile-title-select');
+  const badge = document.getElementById('profile-modal-title-badge');
+  if (!sel || !userProfile) return;
+
+  const unlocked = currentUser?.unlocked_titles || ['title_novice'];
+  const allShopTitles = userProfile.shop_titles || [];
+  
+  sel.innerHTML = '';
+  allShopTitles.forEach(t => {
+    if (unlocked.includes(t.id)) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.innerText = `${t.icon} ${t.name}`;
+      if (t.id === currentUser?.active_title_id) {
+        opt.selected = true;
+        if (badge) badge.innerText = `${t.icon} ${t.name}`;
+      }
+      sel.appendChild(opt);
+    }
+  });
+}
+
+async function onProfileTitleChange(titleId) {
+  try {
+    const res = await fetch('/api/practice/set-active-title', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ title_id: titleId })
+    });
+    const data = await res.json();
+    if (data.success && data.active_title) {
+      if (currentUser) currentUser.active_title_id = titleId;
+      const badge = document.getElementById('profile-modal-title-badge');
+      if (badge) badge.innerText = `${data.active_title.icon} ${data.active_title.name}`;
+      const headerTitle = document.getElementById('header-active-title');
+      if (headerTitle) headerTitle.innerText = `${data.active_title.icon} ${data.active_title.name}`;
+      showToast(`Звание обновлено: ${data.active_title.name}! 👑`);
+    }
+  } catch (err) {
+    console.error('Ошибка выбора звания:', err);
+  }
+}
+
+async function handleSaveProfileSubmit(event) {
+  event.preventDefault();
+  const displayName = document.getElementById('profile-displayname-input').value.trim();
+  const inputAvatar = document.getElementById('profile-avatar-input').value.trim();
+  const bio = document.getElementById('profile-bio-input').value.trim();
+  const newPassword = document.getElementById('profile-new-password').value.trim();
+  const errBox = document.getElementById('profile-error-box');
+  const errMsg = document.getElementById('profile-error-msg');
+  const okBox = document.getElementById('profile-success-box');
+  const btn = document.getElementById('btn-save-profile');
+
+  if (errBox) errBox.classList.add('hidden');
+  if (okBox) okBox.classList.add('hidden');
+
+  const avatarUrl = buildAvatarUrl(currentAvatarStyle, inputAvatar || currentUser?.username || 'user');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Сохранение...</span>';
+  lucide.createIcons();
+
+  try {
+    const bodyPayload = {
+      display_name: displayName,
+      avatar: avatarUrl,
+      bio: bio
+    };
+    if (newPassword) {
+      bodyPayload.new_password = newPassword;
+    }
+
+    const res = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(bodyPayload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      if (errBox && errMsg) {
+        errMsg.innerText = data.detail || 'Не удалось сохранить профиль';
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    currentUser = data.user;
+    updateHeaderUserWidget(currentUser);
+    document.getElementById('profile-modal-display-name').innerText = currentUser.display_name || currentUser.username;
+    document.getElementById('profile-modal-avatar-preview').src = currentUser.avatar;
+
+    if (okBox) okBox.classList.remove('hidden');
+    showToast('Профиль и аватар успешно сохранены! 🎉');
+
+    if (currentTab === 'leaderboard') loadLeaderboard();
+
+    setTimeout(() => {
+      closeProfileModal();
+    }, 900);
+  } catch (err) {
+    if (errBox && errMsg) {
+      errMsg.innerText = err.message;
+      errBox.classList.remove('hidden');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Сохранить</span>';
+    lucide.createIcons();
+  }
 }
 
 // ==========================================
@@ -1969,17 +2238,21 @@ function renderLeaderboard(data) {
   if (userCard) {
     if (data.current_user_rank) {
       const u = data.current_user_rank;
+      const isDev = isDeveloperUser(u);
       userCard.innerHTML = `
         <div class="flex items-center space-x-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-extrabold text-lg text-amber-400 shadow-inner">
+          <div class="w-12 h-12 rounded-2xl ${isDev ? 'bg-amber-500/25 border-2 border-amber-400 text-amber-300 shadow-lg shadow-amber-500/20' : 'bg-amber-500/20 border border-amber-500/30 text-amber-400'} flex items-center justify-center font-extrabold text-lg shadow-inner">
             #${u.rank}
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <h3 class="text-sm font-bold text-white">${escapeHtml(u.display_name)}</h3>
-              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">${escapeHtml(u.title_name)}</span>
+              <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                <span>${escapeHtml(u.display_name)}</span>
+                ${getDeveloperBadgeHtml(u)}
+              </h3>
+              <span class="text-[10px] px-2 py-0.5 rounded ${isDev ? 'bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-300 font-extrabold border border-amber-500/50' : 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'}">${escapeHtml(u.title_name)}</span>
             </div>
-            <p class="text-xs text-slate-400 mt-0.5">Ваш глобальный ранг среди всех участников сообщества</p>
+            <p class="text-xs text-slate-400 mt-0.5">${isDev ? '👑 Создатель и разработчик платформы PyForge' : 'Ваш глобальный ранг среди всех участников сообщества'}</p>
           </div>
         </div>
         <div class="flex items-center space-x-6 sm:border-l sm:border-slate-800 sm:pl-6">
@@ -2029,17 +2302,20 @@ function renderLeaderboard(data) {
       const card = document.createElement('div');
       card.className = `glass-panel rounded-2xl p-5 border ${pr.border} ${pr.glow} flex flex-col items-center text-center space-y-3 relative overflow-hidden transition hover:scale-[1.02]`;
       if (player) {
+        const isPlayerDev = isDeveloperUser(player);
         card.innerHTML = `
           <div class="absolute top-3 left-3 text-2xl">${pr.medal}</div>
           <div class="relative mt-2">
-            <img src="${player.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.username}`}" class="w-16 h-16 rounded-2xl border-2 ${pr.border} bg-slate-950 shadow-lg" alt="${escapeHtml(player.display_name)}">
+            <img src="${player.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.username}`}" class="w-16 h-16 rounded-2xl border-2 ${isPlayerDev ? 'border-amber-400' : pr.border} bg-slate-950 shadow-lg" alt="${escapeHtml(player.display_name)}">
+            ${isPlayerDev ? '<span class="absolute -bottom-1 -right-1 px-1 py-0.2 rounded bg-amber-500 text-black font-black text-[9px] shadow">DEV</span>' : ''}
           </div>
           <div class="space-y-1">
-            <h4 class="font-bold text-sm text-white flex items-center justify-center gap-1.5">
-              ${escapeHtml(player.display_name)}
+            <h4 class="font-bold text-sm text-white flex items-center justify-center gap-1.5 flex-wrap">
+              <span>${escapeHtml(player.display_name)}</span>
+              ${getDeveloperBadgeHtml(player)}
               ${player.is_current_user ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">Вы</span>' : ''}
             </h4>
-            <div class="text-[11px] font-semibold ${pr.text}">${escapeHtml(player.title_name)}</div>
+            <div class="text-[11px] font-semibold ${isPlayerDev ? 'text-amber-300' : pr.text}">${escapeHtml(player.title_name)}</div>
           </div>
           <div class="w-full pt-3 border-t border-slate-800/80 flex items-center justify-around text-xs">
             <div>
@@ -2082,7 +2358,8 @@ function renderLeaderboardRows(rankings) {
 
   rankings.forEach(p => {
     const tr = document.createElement('tr');
-    tr.className = `transition hover:bg-slate-850/60 ${p.is_current_user ? 'bg-sky-950/30 border-l-2 border-sky-500 font-medium' : ''}`;
+    const isDev = isDeveloperUser(p);
+    tr.className = `transition hover:bg-slate-850/60 ${p.is_current_user ? 'bg-sky-950/30 border-l-2 border-sky-500 font-medium' : isDev ? 'bg-amber-950/15' : ''}`;
 
     let medalEmoji = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`;
 
@@ -2090,18 +2367,21 @@ function renderLeaderboardRows(rankings) {
       <td class="py-3 px-4 font-bold text-center text-xs text-slate-400">${medalEmoji}</td>
       <td class="py-3 px-4">
         <div class="flex items-center space-x-3">
-          <img src="${p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username}`}" class="w-8 h-8 rounded-xl border border-slate-700 bg-slate-900" alt="">
+          <div class="relative">
+            <img src="${p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username}`}" class="w-8 h-8 rounded-xl border ${isDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900" alt="">
+          </div>
           <div>
             <div class="font-bold text-white text-xs flex items-center gap-1.5">
-              ${escapeHtml(p.display_name)}
+              <span>${escapeHtml(p.display_name)}</span>
+              ${getDeveloperBadgeHtml(p)}
               ${p.is_current_user ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold border border-sky-500/30">ВЫ</span>' : ''}
             </div>
-            <div class="text-[10px] text-slate-500 font-mono">@${escapeHtml(p.username)}</div>
+            <div class="text-[10px] ${isDev ? 'text-amber-400 font-semibold' : 'text-slate-500'} font-mono">@${escapeHtml(p.username)}</div>
           </div>
         </div>
       </td>
       <td class="py-3 px-4">
-        <span class="text-xs font-semibold text-slate-300">${escapeHtml(p.title_name)}</span>
+        <span class="text-xs font-semibold ${isDev ? 'text-amber-300' : 'text-slate-300'}">${escapeHtml(p.title_name)}</span>
       </td>
       <td class="py-3 px-4 text-center">
         <span class="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 font-mono text-[11px] border border-slate-800">${p.solved_tasks_count}</span>
@@ -2244,9 +2524,12 @@ function renderForumTopics(topics) {
 
       <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-850">
         <div class="flex items-center space-x-2">
-          <img src="${t.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${t.author_username}`}" class="w-5 h-5 rounded-md border border-slate-700 bg-slate-900" alt="">
-          <span class="text-xs font-semibold text-slate-300">${escapeHtml(t.author_display_name || t.author_username)}</span>
-          <span class="text-[10px] text-amber-400 font-medium">${escapeHtml(t.author_title || '🐍 Pythonist')}</span>
+          <img src="${t.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${t.author_username}`}" class="w-5 h-5 rounded-md border ${isDeveloperUser(t.author_username) ? 'border-amber-400' : 'border-slate-700'} bg-slate-900" alt="">
+          <span class="text-xs font-semibold text-slate-300 flex items-center gap-1">
+            <span>${escapeHtml(t.author_display_name || t.author_username)}</span>
+            ${getDeveloperBadgeHtml(t.author_username)}
+          </span>
+          <span class="text-[10px] ${isDeveloperUser(t.author_username) ? 'text-amber-300 font-bold' : 'text-amber-400 font-medium'}">${escapeHtml(t.author_title || '🐍 Pythonist')}</span>
         </div>
         <div class="flex items-center space-x-2">
           ${tagsHtml}
@@ -2329,12 +2612,19 @@ async function openTopicDetail(topicId) {
 }
 
 function renderTopicDetailModal(topic) {
+  const isDev = isDeveloperUser(topic.author_username);
   document.getElementById('topic-detail-title').innerText = topic.title;
   document.getElementById('topic-detail-category-badge').innerText = topic.category.toUpperCase();
   document.getElementById('topic-detail-date').innerText = topic.created_at ? topic.created_at.replace('T', ' ').slice(0, 16) : '';
   document.getElementById('topic-detail-author-avatar').src = topic.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${topic.author_username}`;
-  document.getElementById('topic-detail-author-name').innerText = topic.author_display_name || topic.author_username;
-  document.getElementById('topic-detail-author-title').innerText = topic.author_title || '🐍 Pythonist';
+  document.getElementById('topic-detail-author-name').innerHTML = `<span>${escapeHtml(topic.author_display_name || topic.author_username)}</span> ${getDeveloperBadgeHtml(topic.author_username)}`;
+  
+  const authorTitleElem = document.getElementById('topic-detail-author-title');
+  if (authorTitleElem) {
+    authorTitleElem.innerText = isDev ? '👑 Создатель & Lead Dev' : (topic.author_title || '🐍 Pythonist');
+    authorTitleElem.className = isDev ? 'text-[10px] text-amber-300 font-extrabold' : 'text-[10px] text-amber-400 font-medium';
+  }
+
   document.getElementById('topic-detail-content').innerText = topic.content;
   document.getElementById('topic-detail-upvotes-count').innerText = topic.upvotes || 0;
   document.getElementById('topic-detail-comments-count').innerText = (topic.comments || []).length;
@@ -2359,13 +2649,17 @@ function renderTopicComments(comments) {
 
   comments.forEach(c => {
     const card = document.createElement('div');
-    card.className = 'p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2';
+    const isDev = isDeveloperUser(c.author_username);
+    card.className = `p-3.5 rounded-xl ${isDev ? 'bg-amber-950/20 border border-amber-500/30' : 'bg-slate-950/60 border border-slate-800'} space-y-2`;
     card.innerHTML = `
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
-          <img src="${c.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${c.author_username}`}" class="w-6 h-6 rounded-md border border-slate-700 bg-slate-900">
-          <span class="font-bold text-white text-xs">${escapeHtml(c.author_display_name || c.author_username)}</span>
-          <span class="text-[10px] text-amber-400">${escapeHtml(c.author_title || '🐍 Pythonist')}</span>
+          <img src="${c.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${c.author_username}`}" class="w-6 h-6 rounded-md border ${isDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900">
+          <span class="font-bold text-white text-xs flex items-center gap-1">
+            <span>${escapeHtml(c.author_display_name || c.author_username)}</span>
+            ${getDeveloperBadgeHtml(c.author_username)}
+          </span>
+          <span class="text-[10px] ${isDev ? 'text-amber-300 font-extrabold' : 'text-amber-400'}">${isDev ? '👑 Создатель & Lead Dev' : escapeHtml(c.author_title || '🐍 Pythonist')}</span>
         </div>
         <span class="text-[10px] text-slate-500 font-mono">${c.created_at ? c.created_at.slice(0, 16).replace('T', ' ') : ''}</span>
       </div>
@@ -2495,7 +2789,8 @@ function renderIdeas(ideas) {
 
   ideas.forEach(idea => {
     const card = document.createElement('div');
-    card.className = 'glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-yellow-500/40 transition shadow-sm';
+    const isAuthorDev = isDeveloperUser(idea.author_username);
+    card.className = `glass-panel rounded-2xl p-5 border ${isAuthorDev ? 'border-amber-500/40 bg-amber-950/10' : 'border-slate-800'} flex flex-col justify-between space-y-4 hover:border-yellow-500/40 transition shadow-sm`;
 
     const statusColor = idea.status === 'completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
                         idea.status === 'in_progress' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' :
@@ -2539,8 +2834,11 @@ function renderIdeas(ideas) {
 
       <div class="flex items-center justify-between pt-3 border-t border-slate-850 text-xs text-slate-400">
         <div class="flex items-center space-x-2">
-          <img src="${idea.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${idea.author_username}`}" class="w-5 h-5 rounded-md border border-slate-700 bg-slate-900">
-          <span class="text-[11px] text-slate-300 font-medium">${escapeHtml(idea.author_display_name || idea.author_username)}</span>
+          <img src="${idea.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${idea.author_username}`}" class="w-5 h-5 rounded-md border ${isAuthorDev ? 'border-amber-400' : 'border-slate-700'} bg-slate-900">
+          <span class="text-[11px] text-slate-300 font-medium flex items-center gap-1">
+            <span>${escapeHtml(idea.author_display_name || idea.author_username)}</span>
+            ${getDeveloperBadgeHtml(idea.author_username)}
+          </span>
         </div>
         <span class="text-[10px] text-slate-500 font-mono">${idea.created_at ? idea.created_at.split('T')[0] : ''}</span>
       </div>

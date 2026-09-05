@@ -110,6 +110,12 @@ class LoginRequest(BaseModel):
 class LogoutRequest(BaseModel):
     token: Optional[str] = None
 
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+    avatar: Optional[str] = None
+    bio: Optional[str] = None
+    new_password: Optional[str] = None
+
 class CreateTopicRequest(BaseModel):
     title: str
     category: str
@@ -161,6 +167,22 @@ async def auth_logout(req: Optional[LogoutRequest] = None, authorization: Option
     if t:
         AuthService.logout(t)
     return {"success": True}
+
+@app.put("/api/auth/profile")
+async def auth_update_profile(req: UpdateProfileRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    if not t:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    try:
+        return AuthService.update_profile(
+            token=t,
+            display_name=req.display_name,
+            avatar=req.avatar,
+            bio=req.bio,
+            new_password=req.new_password
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # --- LEADERBOARD ---
 

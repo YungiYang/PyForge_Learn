@@ -29,12 +29,15 @@ class LeaderboardService:
             if current_username and u.get("username", "").lower() == current_username.lower():
                 is_current = True
 
+            is_dev = AuthService.is_developer(u.get("username", "")) or u.get("is_developer", False) or u.get("role") == "creator"
             entry = {
                 "rank": idx,
                 "id": u.get("id"),
                 "username": u.get("username"),
                 "display_name": u.get("display_name") or u.get("username"),
                 "avatar": u.get("avatar"),
+                "is_developer": is_dev,
+                "role": "creator" if is_dev else "user",
                 "stars": u.get("stars", 0),
                 "total_earned_stars": u.get("total_earned_stars", 0),
                 "solved_tasks_count": len(u.get("solved_tasks", [])),
