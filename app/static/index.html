@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="/manifest.json">
+  <title>PyForge — Справочник и Конструктор Python-приложений</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            },
+            dark: {
+              900: '#090d16',
+              800: '#0f172a',
+              700: '#1e293b',
+              600: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Prism.js Syntax Highlighting CDN -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-docker.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- TOP APP HEADER -->
+  <header class="h-16 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+        <i data-lucide="layers" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="font-bold text-lg tracking-tight text-white">PyForge</h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-medium border border-sky-500/20">Python 3.12-3.13</span>
+        </div>
+        <p class="text-xs text-slate-400">Интерактивный справочник & Конструктор приложений</p>
+      </div>
+    </div>
+
+    <!-- User Profile & Quick Search Bar -->
+    <div class="flex items-center space-x-3">
+      <!-- Stars and Title Widget -->
+      <button onclick="openTitleShopModal()" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-amber-500/30 text-xs transition shadow-sm group">
+        <span class="flex items-center gap-1 font-bold text-amber-400">
+          <i data-lucide="star" class="w-4 h-4 fill-amber-400 text-amber-400"></i>
+          <span id="header-stars-count">0</span> ⭐
+        </span>
+        <span class="text-slate-600">|</span>
+        <span id="header-active-title" class="font-medium text-slate-300 group-hover:text-white transition">🐍 Начинающий Змеелов</span>
+        <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">Магазин</span>
+      </button>
+
+      <button onclick="openSearchModal()" class="hidden md:flex items-center space-x-3 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-400 hover:text-slate-200 transition">
+        <i data-lucide="search" class="w-3.5 h-3.5"></i>
+        <span>Поиск...</span>
+        <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-900 border border-slate-700 rounded text-slate-400">Ctrl+K</kbd>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="w-64 border-r border-slate-800 bg-[#0c1220] flex flex-col justify-between p-3 select-none flex-shrink-0">
+      <nav class="space-y-1">
+        <div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Навигация</div>
+        
+        <button onclick="switchTab('practice')" id="nav-practice" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="award" class="w-4 h-4 text-amber-400"></i>
+          <span class="font-semibold text-amber-300">Тренажер & Задания</span>
+          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">⭐ EXP</span>
+        </button>
+
+        <button onclick="switchTab('ai-scout')" id="nav-ai-scout" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="bot" class="w-4 h-4 text-emerald-400"></i>
+          <span class="font-medium text-emerald-300">ИИ-Поисковик библиотек</span>
+          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">AI</span>
+        </button>
+
+        <button onclick="switchTab('vscode')" id="nav-vscode" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="terminal" class="w-4 h-4 text-sky-400"></i>
+          <span class="font-medium text-sky-300">Интеграция с VS Code</span>
+          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">Bridge</span>
+        </button>
+
+        <button onclick="switchTab('scaffolder')" id="nav-scaffolder" class="nav-item active w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+          <span>Конструктор проектов</span>
+        </button>
+
+        <button onclick="switchTab('frameworks')" id="nav-frameworks" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="layout-grid" class="w-4 h-4 text-sky-400"></i>
+          <span>Каталог фреймворков</span>
+        </button>
+
+        <button onclick="switchTab('architecture')" id="nav-architecture" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="boxes" class="w-4 h-4 text-indigo-400"></i>
+          <span>Архитектура и Паттерны</span>
+        </button>
+
+        <button onclick="switchTab('databases')" id="nav-databases" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+          <span>Базы данных & ORM</span>
+        </button>
+
+        <button onclick="switchTab('packaging')" id="nav-packaging" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="package" class="w-4 h-4 text-purple-400"></i>
+          <span>Сборка .EXE & Скрипты</span>
+        </button>
+
+        <button onclick="switchTab('snippets')" id="nav-snippets" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="code-2" class="w-4 h-4 text-pink-400"></i>
+          <span>Шпаргалки & Сниппеты</span>
+        </button>
+
+        <button onclick="switchTab('tools')" id="nav-tools" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="wrench" class="w-4 h-4 text-orange-400"></i>
+          <span>Инструменты (UV, Ruff)</span>
+        </button>
+
+        <div class="pt-4 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Эксперименты</div>
+        <button onclick="switchTab('playground')" id="nav-playground" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition text-slate-300 hover:bg-slate-800/60">
+          <i data-lucide="play" class="w-4 h-4 text-green-400"></i>
+          <span>Песочница кода</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer / Environment Badge -->
+      <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
+        <div class="flex items-center justify-between text-slate-300 font-medium">
+          <span>Среда запуска</span>
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
+        <p>Локальный сервер активен</p>
+        <p class="text-[11px] text-slate-500 font-mono">http://localhost:8000</p>
+      </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-[#090d16]" id="main-content-view">
+      
+      <!-- TAB: PRACTICE & QUESTS WITH REAL-TIME AI MENTOR -->
+      <section id="tab-practice" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <i data-lucide="award" class="w-6 h-6 text-amber-400"></i>
+              Тренажер практики & Задания по Python
+            </h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Решайте практические задачи, зарабатывайте звёзды ⭐, обменивайте их на титулы, а ИИ-наставник в реальном времени подскажет, как исправить ошибки.
+            </p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button onclick="generateAiPracticeTaskModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-300"></i>
+              <span>Сгенерировать задачу с ИИ</span>
+            </button>
+            <button onclick="openTitleShopModal()" class="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold text-xs flex items-center gap-2 transition">
+              <i data-lucide="crown" class="w-4 h-4 text-amber-400"></i>
+              <span>Зал Титулов</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Library Random Task Generator Bar -->
+        <div class="glass-panel rounded-2xl p-4 border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-slate-900/60 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-lg shadow-sm">
+              🎲
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                Рандомизатор задач по библиотекам Python
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">12+ библиотек</span>
+              </h3>
+              <p class="text-xs text-slate-400">Выберите библиотеку (FastAPI, Re, Kivy, Openpyxl, Pathlib, SQLite, Pandas и др.) для мгновенного создания испытания с тестами</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+            <select id="practice-library-select" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="fastapi">⚡ FastAPI (REST API)</option>
+              <option value="re">🔍 re (Регулярные выражения)</option>
+              <option value="kivy">📱 Kivy (GUI & Мобильные)</option>
+              <option value="openpyxl">📊 Openpyxl (Excel таблицы)</option>
+              <option value="pathlib">📁 Pathlib (Файловая система)</option>
+              <option value="requests">🌐 Requests / HTTP</option>
+              <option value="sqlite3">🗄️ SQLite3 (База данных SQL)</option>
+              <option value="json">📦 JSON (Парсинг данных)</option>
+              <option value="pandas">🐼 Pandas (DataFrames)</option>
+              <option value="pydantic">🛡️ Pydantic (Схемы и типы)</option>
+              <option value="collections">📚 Collections (Контейнеры)</option>
+              <option value="datetime">⏰ Datetime (Даты и время)</option>
+              <option value="customtkinter">🎨 CustomTkinter (Десктоп GUI)</option>
+            </select>
+            <select id="practice-diff-select" class="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="">Случайная сложность</option>
+              <option value="Junior">Junior (⭐ 20-25)</option>
+              <option value="Middle">Middle (⭐ 35-45)</option>
+              <option value="Senior">Senior (⭐ 75-80)</option>
+            </select>
+            <button onclick="generateRandomLibraryTask()" id="btn-gen-library-task" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 whitespace-nowrap transition">
+              <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
+              <span>🎲 Сгенерировать задачу</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          
+          <!-- Column 1: Tasks List (4 cols) -->
+          <div class="xl:col-span-4 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Список заданий:</h3>
+              <div class="flex space-x-1 text-[11px]" id="practice-filter-btns">
+                <button onclick="filterPracticeTasks('all')" class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">Все</button>
+                <button onclick="filterPracticeTasks('Junior')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200">Junior</button>
+                <button onclick="filterPracticeTasks('Middle')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200">Middle</button>
+                <button onclick="filterPracticeTasks('Senior')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200">Senior</button>
+              </div>
+            </div>
+
+            <div id="practice-tasks-list" class="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Task Description Details Card -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span class="text-xs font-bold text-sky-400" id="task-detail-category">Категория</span>
+                <span class="text-xs font-bold text-amber-400 flex items-center gap-1">
+                  <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400"></i>
+                  <span id="task-detail-reward">+20 ⭐</span>
+                </span>
+              </div>
+              <h4 class="font-bold text-white text-base" id="task-detail-title">Выберите задание</h4>
+              <div class="text-xs text-slate-300 space-y-2 leading-relaxed whitespace-pre-wrap" id="task-detail-desc">
+                Выберите практическое задание из списка выше, чтобы ознакомиться с условием и приступить к написанию кода.
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Code Editor & Test Cases (5 cols) -->
+          <div class="xl:col-span-5 space-y-4">
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="code-2" class="w-4 h-4 text-sky-400"></i>
+                  <span class="text-xs font-bold text-white">Редактор решения</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button onclick="resetPracticeCode()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs transition">
+                    Сбросить
+                  </button>
+                  <button onclick="submitPracticeSolution()" id="submit-solution-btn" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition">
+                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                    <span>Проверить решение</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Reactive Code Textarea -->
+              <div class="relative">
+                <textarea id="practice-code-editor" class="w-full h-80 bg-[#0b0f19] border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-100 focus:outline-none focus:border-sky-500 resize-none" spellcheck="false" oninput="onPracticeCodeInput()"></textarea>
+              </div>
+
+              <!-- Test Execution Results -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span class="font-bold text-slate-300">Результаты автоматических тестов:</span>
+                  <span id="tests-status-badge" class="text-[11px] font-mono">Тесты еще не запускались</span>
+                </div>
+                <div id="practice-test-results" class="bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 min-h-[120px] max-h-48 overflow-y-auto text-xs space-y-2">
+                  <p class="text-slate-500 text-center py-4">Нажмите «Проверить решение» для запуска тестов.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Real-Time AI Error Mentor Panel (3 cols) -->
+          <div class="xl:col-span-3 space-y-4">
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4 sticky top-20">
+              
+              <!-- Mentor Header with Live Beacon -->
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                  <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <i data-lucide="bot" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">ИИ-Наставник</h4>
+                    <span class="text-[10px] text-slate-400">Live Code Inspector</span>
+                  </div>
+                </div>
+                <!-- Status Beacon -->
+                <div id="mentor-beacon" class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span id="mentor-beacon-text">Код чист</span>
+                </div>
+              </div>
+
+              <!-- Realtime Diagnosis Card -->
+              <div id="mentor-diagnosis-card" class="space-y-3">
+                <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                      <i data-lucide="info" class="w-3.5 h-3.5 text-sky-400"></i>
+                      <span>Диагностика</span>
+                    </span>
+                    <span id="mentor-line-tag" class="hidden text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-mono border border-red-500/30">Строка 1</span>
+                  </div>
+                  <p id="mentor-message" class="text-xs text-slate-300 leading-relaxed">
+                    ✨ Ошибок не обнаружено. Продолжайте писать код, ИИ автоматически проверит синтаксис на лету.
+                  </p>
+                </div>
+
+                <!-- How to fix card -->
+                <div id="mentor-solution-box" class="hidden p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                  <div class="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                    <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
+                    <span>Как исправить:</span>
+                  </div>
+                  <p id="mentor-hint" class="text-xs text-slate-300 leading-relaxed"></p>
+                  
+                  <button onclick="applyMentorFix()" id="mentor-apply-btn" class="hidden w-full px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition mt-2 shadow-sm">
+                    <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                    <span>Применить исправление</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick Tip / Rule of the day -->
+              <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800/60 text-[11px] text-slate-400 space-y-1">
+                <span class="font-bold text-slate-300 flex items-center gap-1">
+                  <i data-lucide="zap" class="w-3 h-3 text-amber-400"></i> Совет дня:
+                </span>
+                <p>Используйте `enumerate()` вместо `range(len(items))` для одновременного получения индекса и элемента.</p>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB: VS CODE INTEGRATION & LIVE BRIDGE -->
+      <section id="tab-vscode" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <i data-lucide="terminal" class="w-6 h-6 text-sky-400"></i>
+              Интеграция с Visual Studio Code (Live Bridge)
+            </h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Анализируйте код, открытый в вашем VS Code, в реальном времени, отслеживайте опечатки, пропущенные импорты и применяйте 1-click автофиксы прямо на диске.
+            </p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Мост активен (порт 8000)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          
+          <!-- Left Col: Live File Inspector (7 cols) -->
+          <div class="xl:col-span-7 space-y-5">
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i data-lucide="file-code" class="w-4 h-4 text-sky-400"></i>
+                  Инспектор файлов на диске
+                </h3>
+                <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
+                  <input type="checkbox" id="vscode-auto-watch" class="rounded text-sky-500 focus:ring-0" checked>
+                  <span>Автообновление (каждые 2 сек)</span>
+                </label>
+              </div>
+
+              <div class="flex gap-2">
+                <input type="text" id="vscode-file-input" placeholder="Укажите абсолютный или относительный путь к файлу Python..." value="run.py" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono">
+                <button onclick="inspectVSCodeFile()" id="btn-inspect-vscode-file" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-sky-600/30 transition whitespace-nowrap">
+                  <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                  <span>Анализ</span>
+                </button>
+              </div>
+
+              <!-- File Info Bar -->
+              <div id="vscode-file-info-bar" class="hidden p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400" id="vscode-file-status-icon"></i>
+                  <span class="font-bold text-white font-mono" id="vscode-file-name-display">file.py</span>
+                  <span class="text-slate-500" id="vscode-file-size-display">(0 KB)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button onclick="syncVSCodeToPlayground()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition flex items-center gap-1">
+                    <i data-lucide="play" class="w-3 h-3 text-green-400"></i> В песочницу
+                  </button>
+                  <button onclick="saveVSCodeFixToDisk()" id="btn-save-disk-fix" class="hidden px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition flex items-center gap-1">
+                    <i data-lucide="save" class="w-3 h-3"></i> Сохранить фикс
+                  </button>
+                </div>
+              </div>
+
+              <!-- File Content Preview with Line Numbers -->
+              <div class="relative">
+                <textarea id="vscode-code-preview" class="w-full h-72 bg-[#0b0f19] border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200 focus:outline-none focus:border-sky-500 resize-none leading-relaxed" spellcheck="false" placeholder="Здесь будет отображаться содержимое файла при инспекции..."></textarea>
+              </div>
+
+              <!-- Live Diagnostic Feed for inspected file -->
+              <div class="space-y-2">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Обнаруженные замечания ИИ:</span>
+                  <span id="vscode-issues-counter" class="text-slate-500 font-mono text-[11px]">Файл еще не проверен</span>
+                </h4>
+                <div id="vscode-issues-container" class="space-y-2 max-h-56 overflow-y-auto pr-1 text-xs">
+                  <p class="text-slate-500 text-center py-4 bg-slate-900/40 rounded-xl border border-slate-800/60">
+                    Укажите путь к любому файлу `.py` и нажмите «Анализ».
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Right Col: Workspace Scanner & VS Code Extension Guide (5 cols) -->
+          <div class="xl:col-span-5 space-y-5">
+            
+            <!-- Workspace Scanner Card -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="folder-search" class="w-4 h-4 text-emerald-400"></i>
+                Сканер проекта / папки целиком
+              </h3>
+              <p class="text-xs text-slate-400">
+                Проверить все `.py` файлы в директории на синтаксические ошибки, скрытые баги и опечатки за 1 клик.
+              </p>
+
+              <div class="flex gap-2">
+                <input type="text" id="vscode-workspace-input" placeholder="Путь к папке проекта..." value="." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+                <button onclick="scanVSCodeWorkspace()" id="btn-scan-workspace" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition whitespace-nowrap">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                  <span>Сканировать</span>
+                </button>
+              </div>
+
+              <!-- Workspace Scan Results -->
+              <div id="vscode-workspace-results" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- VS Code Extension Integration Card -->
+            <div class="glass-panel rounded-2xl p-5 border border-sky-500/30 bg-gradient-to-br from-sky-950/30 to-slate-900/80 space-y-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold">
+                  <i data-lucide="plug" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white">Расширение для Visual Studio Code</h4>
+                  <p class="text-xs text-sky-300/80">Папка `vscode-extension` уже сгенерирована в проекте</p>
+                </div>
+              </div>
+
+              <div class="space-y-2.5 text-xs text-slate-300">
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px] font-bold mt-0.5 flex-shrink-0">1</span>
+                  <span>Откройте папку `vscode-extension` в VS Code (`code vscode-extension`).</span>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px] font-bold mt-0.5 flex-shrink-0">2</span>
+                  <span>Нажмите клавишу <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-white font-mono text-[10px]">F5</kbd> для запуска тестового окна VS Code с активным ИИ-наставником.</span>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px] font-bold mt-0.5 flex-shrink-0">3</span>
+                  <span>Нажмите <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-white font-mono text-[10px]">Ctrl+Shift+P</kbd> и введите `PyForge: Random Task` для решения задач прямо в редакторе!</span>
+                </div>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+                <span class="text-[11px] text-slate-400">Быстрый запуск расширения:</span>
+                <button onclick="copyToClipboard('code vscode-extension')" class="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 font-semibold">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Скопировать команду
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB: AI LIBRARY SCOUT -->
+      <section id="tab-ai-scout" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="bot" class="w-6 h-6 text-emerald-400"></i>
+                ИИ-Поисковик библиотек и источников
+              </h2>
+              <p class="text-sm text-slate-400 mt-1">
+                Опишите любую задачу или технологию своими словами — ИИ подберет лучшие библиотеки, документацию и готовые примеры кода.
+              </p>
+            </div>
+            <button onclick="toggleLlmConfigDrawer()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 flex items-center gap-1.5 transition">
+              <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Настройки LLM / Ollama</span>
+            </button>
+          </div>
+
+          <!-- Collapsible LLM Config -->
+          <div id="llm-config-panel" class="hidden mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="cpu" class="w-4 h-4 text-sky-400"></i>
+              <span>Подключение внешней или локальной языковой модели</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="text-slate-400 block mb-1">Endpoint (Ollama / OpenAI URL):</label>
+                <input type="text" id="ai-llm-endpoint" value="http://localhost:11434/v1/chat/completions" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">API Key (для Ollama можно оставить ollama):</label>
+                <input type="password" id="ai-llm-key" value="ollama" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Модель (llama3, mistral, gpt-4o, etc.):</label>
+                <input type="text" id="ai-llm-model" value="llama3" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Search Box -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="ai-scout-input" placeholder="Например: 'как распознавать текст с картинок OCR' или 'генерация красивых PDF с таблицами'..." class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition" onkeydown="if(event.key==='Enter') performAiScoutSearch()">
+            </div>
+            <select id="ai-scout-mode" class="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3.5 text-xs text-slate-200 font-medium focus:outline-none">
+              <option value="web" selected>🌐 Поиск по Интернету и PyPI (Live)</option>
+              <option value="smart">⚡ Smart База Знаний (Offline)</option>
+              <option value="llm">🧠 External LLM / Ollama</option>
+            </select>
+            <button onclick="performAiScoutSearch()" id="ai-scout-btn" class="px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition flex-shrink-0">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Найти решения</span>
+            </button>
+          </div>
+
+          <!-- Quick Suggested Chips -->
+          <div class="space-y-2 pt-2">
+            <div class="text-xs text-slate-400 font-medium">Популярные темы и задачи:</div>
+            <div id="ai-suggestions-chips" class="flex flex-wrap gap-2">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Scout Results Area -->
+        <div id="ai-scout-results" class="space-y-6">
+          <div class="p-12 text-center text-slate-500 space-y-2 border border-dashed border-slate-800 rounded-2xl">
+            <i data-lucide="bot" class="w-10 h-10 mx-auto text-slate-600 mb-2"></i>
+            <p class="text-sm font-medium text-slate-400">Введите задачу или выберите одну из подсказок выше.</p>
+            <p class="text-xs text-slate-600">ИИ проанализирует базу знаний и сформирует подборку библиотек с примерами кода и источниками.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 1: PROJECT SCAFFOLDER / FORGE -->
+      <section id="tab-scaffolder" class="tab-content animate-fade-in space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-6 h-6 text-amber-400"></i>
+              Конструктор проектов под ключ
+            </h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Выберите стек и сгенерируйте готовый проект с настроенной архитектурой, `pyproject.toml`, тестами и сборщиком.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Template selector -->
+          <div class="lg:col-span-4 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">1. Выберите тип приложения:</h3>
+            <div id="templates-list-container" class="space-y-3">
+              <!-- Loaded via JS -->
+            </div>
+          </div>
+
+          <!-- Project preview & Generator Panel -->
+          <div class="lg:col-span-8 space-y-4">
+            <div class="glass-panel rounded-2xl p-6 space-y-5 border border-slate-800">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 id="selected-template-name" class="text-lg font-bold text-white">PySide6 Desktop Application</h3>
+                  <p id="selected-template-desc" class="text-xs text-slate-400 mt-0.5">Готовая структура с графическим интерфейсом и фоновыми задачами.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button onclick="downloadCurrentProjectZip()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 border border-slate-700 transition">
+                    <i data-lucide="download" class="w-4 h-4 text-sky-400"></i>
+                    <span>Скачать ZIP</span>
+                  </button>
+                  <button onclick="showDirectoryGenerateModal()" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-sky-600/30 transition">
+                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                    <span>Создать на диске</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Interactive File Tabs & Code Inspector -->
+              <div class="border border-slate-800 rounded-xl overflow-hidden bg-[#0a0f1d]">
+                <div class="bg-slate-900/90 px-4 py-2 border-b border-slate-800 flex items-center justify-between">
+                  <div id="file-tabs-container" class="flex space-x-2 overflow-x-auto py-1">
+                    <!-- File tab buttons generated dynamically -->
+                  </div>
+                  <button onclick="copyCurrentFileCode()" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/60 border border-slate-700/50">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    <span>Копировать</span>
+                  </button>
+                </div>
+                <div class="p-4 overflow-x-auto max-h-[480px]">
+                  <pre class="m-0"><code id="current-file-code-display" class="language-python"># Выберите файл для просмотра</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: FRAMEWORKS CATALOG -->
+      <section id="tab-frameworks" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="layout-grid" class="w-6 h-6 text-sky-400"></i>
+            Каталог фреймворков и библиотек
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Сравнение, примеры быстрого старта, плюсы и минусы всех ключевых решений экосистемы Python.
+          </p>
+
+          <!-- Category filter buttons -->
+          <div class="flex flex-wrap gap-2 mt-4" id="framework-filter-buttons">
+            <button onclick="filterFrameworks('all')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30">Все</button>
+            <button onclick="filterFrameworks('desktop')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">Desktop GUI</button>
+            <button onclick="filterFrameworks('web')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">Web Backend & API</button>
+            <button onclick="filterFrameworks('bots')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">Telegram Боты</button>
+            <button onclick="filterFrameworks('cli')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">CLI Утилиты</button>
+            <button onclick="filterFrameworks('data')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">Data & AI</button>
+            <button onclick="filterFrameworks('games')" class="fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700">Игры & Мультимедиа</button>
+          </div>
+        </div>
+
+        <!-- Frameworks Grid -->
+        <div id="frameworks-cards-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 3: ARCHITECTURE & BEST PRACTICES -->
+      <section id="tab-architecture" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="boxes" class="w-6 h-6 text-indigo-400"></i>
+            Архитектура и Фундамент приложений
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Как проектировать надежные, поддерживаемые и масштабируемые программы на Python.
+          </p>
+        </div>
+
+        <div id="architecture-cards-container" class="space-y-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 4: DATABASES & STORAGE -->
+      <section id="tab-databases" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="database" class="w-6 h-6 text-emerald-400"></i>
+            Базы данных, ORM и Кэширование
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            SQLAlchemy 2.0 (async), SQLite WAL оптимизация, миграции Alembic и Redis.
+          </p>
+        </div>
+
+        <div id="databases-cards-container" class="space-y-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 5: PACKAGING & COMPILATION -->
+      <section id="tab-packaging" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="package" class="w-6 h-6 text-purple-400"></i>
+            Сборка в .EXE и Инсталляторы
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Интерактивный генератор команд PyInstaller, компиляция Nuitka в C++ и создание Inno Setup установщиков.
+          </p>
+        </div>
+
+        <!-- PyInstaller Interactive Command Builder -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="sliders" class="w-5 h-5 text-sky-400"></i>
+            Интерактивный конструктор команды PyInstaller
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <label class="flex items-center space-x-2 bg-slate-900/60 p-3 rounded-lg border border-slate-800 cursor-pointer">
+              <input type="checkbox" id="pyinst-onefile" class="rounded text-sky-500 focus:ring-0" checked onchange="updatePyInstallerCommand()">
+              <span>Один файл (<code>--onefile</code>)</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-slate-900/60 p-3 rounded-lg border border-slate-800 cursor-pointer">
+              <input type="checkbox" id="pyinst-windowed" class="rounded text-sky-500 focus:ring-0" checked onchange="updatePyInstallerCommand()">
+              <span>Скрыть консоль (<code>--windowed</code>)</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-slate-900/60 p-3 rounded-lg border border-slate-800 cursor-pointer">
+              <input type="checkbox" id="pyinst-clean" class="rounded text-sky-500 focus:ring-0" checked onchange="updatePyInstallerCommand()">
+              <span>Очистить кэш (<code>--clean</code>)</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Имя приложения:</label>
+              <input type="text" id="pyinst-appname" value="MySuperApp" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm" oninput="updatePyInstallerCommand()">
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Главный файл скрипта:</label>
+              <input type="text" id="pyinst-script" value="src/main.py" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm" oninput="updatePyInstallerCommand()">
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Готовая команда для терминала:</span>
+              <button onclick="copyToClipboard(document.getElementById('pyinst-cmd-output').innerText)" class="text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Копировать команду
+              </button>
+            </div>
+            <div class="bg-black/80 rounded-xl p-3 border border-slate-800 font-mono text-xs text-green-400 overflow-x-auto select-all" id="pyinst-cmd-output">
+              pyinstaller --noconfirm --onefile --windowed --clean --name "MySuperApp" src/main.py
+            </div>
+          </div>
+        </div>
+
+        <div id="packaging-cards-container" class="space-y-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 6: SNIPPETS & CHEATSHEETS -->
+      <section id="tab-snippets" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <i data-lucide="code-2" class="w-6 h-6 text-pink-400"></i>
+              Библиотека сниппетов и шпаргалок
+            </h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Готовые, проверенные куски кода для решения типовых задач в Python-приложениях.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <input type="text" id="snippet-search-input" placeholder="Поиск по тегам (async, lock, file)..." class="bg-slate-900 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-sky-500 w-64" oninput="searchSnippets()">
+          </div>
+        </div>
+
+        <div id="snippets-cards-container" class="grid grid-cols-1 gap-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 7: TOOLS -->
+      <section id="tab-tools" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5">
+          <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="wrench" class="w-6 h-6 text-orange-400"></i>
+            Инструменты разработки
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Ruff, UV, Mypy, Pytest и современные стандарты автоматизации.
+          </p>
+        </div>
+
+        <div id="tools-cards-container" class="space-y-6">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- TAB 8: CODE PLAYGROUND -->
+      <section id="tab-playground" class="tab-content hidden animate-fade-in space-y-6">
+        <div class="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <i data-lucide="play" class="w-6 h-6 text-green-400"></i>
+              Интерактивная песочница Python
+            </h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Запуск и мгновенная проверка кода на локальном интерпретаторе Python с замером времени.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <select id="playground-preset-select" class="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-lg px-3 py-2" onchange="loadPlaygroundPreset()">
+              <option value="async">Пример: Асинхронный запуск задач</option>
+              <option value="dataclass">Пример: Dataclasses и валидация</option>
+              <option value="matching">Пример: Pattern Matching (match/case)</option>
+              <option value="benchmark">Пример: Бенчмарк производительности</option>
+            </select>
+            <button onclick="runPlaygroundCode()" id="run-code-btn" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition">
+              <i data-lucide="play" class="w-4 h-4"></i>
+              <span>Запустить код</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Editor -->
+          <div class="lg:col-span-7 flex flex-col space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Редактор кода:</span>
+              <span>Python 3.13</span>
+            </div>
+            <textarea id="playground-editor" class="w-full h-[450px] bg-[#0b0f19] border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-100 focus:outline-none focus:border-sky-500 resize-none" spellcheck="false"></textarea>
+          </div>
+
+          <!-- Output Console -->
+          <div class="lg:col-span-5 flex flex-col space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Консоль вывода (stdout/stderr):</span>
+              <span id="playground-timer" class="font-mono text-emerald-400">⏱️ Готов к запуску</span>
+            </div>
+            <div id="playground-output" class="w-full h-[450px] bg-black/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300 overflow-y-auto whitespace-pre-wrap select-all">
+Нажмите «Запустить код» для выполнения...
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- DIRECTORY GENERATION MODAL -->
+  <div id="dir-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-5 h-5 text-sky-400"></i>
+          Создать проект на диске
+        </h3>
+        <button onclick="closeDirectoryGenerateModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Имя папки проекта:</label>
+          <input type="text" id="modal-project-name" value="my_awesome_app" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Путь к целевой директории:</label>
+          <input type="text" id="modal-target-dir" value="C:\Users\user0\Projects" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs">
+          <p class="text-[11px] text-slate-500 mt-1">Проект будет развернут со всеми файлами, конфигурациями и `main.py`.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-2">
+        <button onclick="closeDirectoryGenerateModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium">Отмена</button>
+        <button onclick="confirmGenerateToDirectory()" id="modal-submit-btn" class="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg shadow-sky-600/30">Сгенерировать проект</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL SEARCH MODAL -->
+  <div id="search-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-start justify-center pt-20 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl space-y-3">
+      <div class="p-4 border-b border-slate-800 flex items-center space-x-3">
+        <i data-lucide="search" class="w-5 h-5 text-sky-400"></i>
+        <input type="text" id="modal-search-input" placeholder="Введите тему (PySide6, SQLite, AsyncIO, PyInstaller, decorators)..." class="bg-transparent text-white text-base focus:outline-none w-full" oninput="performGlobalSearch()">
+        <kbd onclick="closeSearchModal()" class="cursor-pointer px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded text-slate-400">ESC</kbd>
+      </div>
+      <div id="modal-search-results" class="max-h-96 overflow-y-auto p-4 space-y-2">
+        <p class="text-xs text-slate-500 text-center py-6">Начните вводить текст для поиска по всей базе знаний...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TITLE SHOP MODAL -->
+  <div id="title-shop-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-2xl w-full space-y-5 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <i data-lucide="crown" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-white">Зал Титулов и Наград</h3>
+            <p class="text-xs text-slate-400">Обменивайте заработанные звёзды ⭐ на уникальные звания разработчика</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-3">
+          <div class="px-3 py-1.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs font-bold text-amber-300 flex items-center gap-1.5">
+            <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+            <span id="shop-stars-balance">0</span> ⭐
+          </div>
+          <button onclick="closeTitleShopModal()" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Titles Grid -->
+      <div id="shop-titles-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </div>
+
+  <!-- AI TASK GENERATOR MODAL -->
+  <div id="ai-task-gen-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i>
+          Сгенерировать задачу с ИИ
+        </h3>
+        <button onclick="closeAiTaskGenModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-400 mb-1">Тема или навык:</label>
+          <input type="text" id="ai-gen-topic" value="регулярные выражения и валидация" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-xs">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-400 mb-1">Уровень сложности:</label>
+          <select id="ai-gen-difficulty" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-xs">
+            <option value="Junior">Junior (+20 ⭐)</option>
+            <option value="Middle" selected>Middle (+40 ⭐)</option>
+            <option value="Senior">Senior (+80 ⭐)</option>
+            <option value="Architect">Architect (+150 ⭐)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeAiTaskGenModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Отмена</button>
+        <button onclick="confirmGenerateAiTask()" id="ai-gen-submit-btn" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30">Создать квест</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-sky-500/40 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform translate-y-20 opacity-0 transition duration-300 z-50">
+    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+    <span id="toast-message" class="text-sm font-medium">Успешно скопировано!</span>
+  </div>
+
+  <!-- APP LOGIC SCRIPT -->
+  <script src="app.js"></script>
+</body>
+</html>

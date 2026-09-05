@@ -1,0 +1,94 @@
+{
+  "name": "pyforge-assistant",
+  "displayName": "PyForge AI Mentor & Studio",
+  "description": "Интеллектуальный ИИ-наставник по Python, поиск ошибок в реальном времени, 1-click автофиксы и задачи по библиотекам прямо в VS Code.",
+  "version": "1.0.0",
+  "publisher": "pyforge",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Education",
+    "Snippets"
+  ],
+  "keywords": [
+    "python",
+    "ai",
+    "mentor",
+    "linter",
+    "syntax",
+    "fastapi",
+    "practice"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onCommand:pyforge.inspectFile",
+    "onCommand:pyforge.openWebUI",
+    "onCommand:pyforge.randomTask"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pyforge.inspectFile",
+        "title": "PyForge: Проанализировать текущий файл с ИИ",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "pyforge.openWebUI",
+        "title": "PyForge: Открыть студию PyForge Studio",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "pyforge.randomTask",
+        "title": "PyForge: 🎲 Сгенерировать задачу по библиотеке",
+        "icon": "$(symbol-event)"
+      },
+      {
+        "command": "pyforge.syncWithPyForge",
+        "title": "PyForge: 📤 Открыть текущий код в PyForge Sandbox",
+        "icon": "$(cloud-upload)"
+      }
+    ],
+    "configuration": {
+      "title": "PyForge AI Mentor",
+      "properties": {
+        "pyforge.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "URL запущенного сервера PyForge (по умолчанию http://127.0.0.1:8000)"
+        },
+        "pyforge.enableLiveDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Включить анализ кода и подсветку ошибок на лету при наборе текста"
+        },
+        "pyforge.debounceMs": {
+          "type": "number",
+          "default": 350,
+          "description": "Задержка (мс) перед отправкой кода в ИИ-диагностику"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pyforge-sidebar",
+          "title": "PyForge AI Mentor",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pyforge-sidebar": [
+        {
+          "type": "webview",
+          "id": "pyforge.sidebarView",
+          "name": "PyForge Наставник"
+        }
+      ]
+    }
+  }
+}

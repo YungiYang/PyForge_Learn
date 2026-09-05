@@ -1,0 +1,1663 @@
+// PyForge State and UI Controller
+
+let currentTab = 'scaffolder';
+let currentTemplate = null;
+let currentSelectedFile = null;
+let currentTemplatesList = [];
+let allSnippets = [];
+let allFrameworks = [];
+
+// Playground Code Presets
+const PLAYGROUND_PRESETS = {
+  async: `import asyncio
+import time
+
+async def worker(task_id: int, delay: float):
+    print(f"▶️ Начало задачи {task_id}")
+    await asyncio.sleep(delay)
+    print(f"✅ Задача {task_id} завершена за {delay}с")
+    return f"Результат {task_id}"
+
+async def main():
+    start = time.perf_counter()
+    # Запускаем задачи параллельно
+    async with asyncio.TaskGroup() as tg:
+        t1 = tg.create_task(worker(1, 0.5))
+        t2 = tg.create_task(worker(2, 0.3))
+        t3 = tg.create_task(worker(3, 0.7))
+
+    total = time.perf_counter() - start
+    print(f"\\n⏱️ Все 3 задачи завершены параллельно за {total:.2f} сек!")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+`,
+  dataclass: `from dataclasses import dataclass, field
+from typing import List
+
+@dataclass
+class Product:
+    id: int
+    title: str
+    price: float
+    tags: List[str] = field(default_factory=list)
+
+    @property
+    def formatted_price(self) -> str:
+        return f"{self.price:.2f} ₽"
+
+p1 = Product(id=1, title="Python Pro Book", price=1250.0, tags=["python", "books"])
+p2 = Product(id=2, title="Mechanical Keyboard", price=8900.5, tags=["hardware"])
+
+print("Товар 1:", p1)
+print("Форматированная цена:", p1.formatted_price)
+print("Товар 2 теги:", p2.tags)
+`,
+  matching: `def parse_action(command: dict):
+    match command:
+        case {"action": "create", "type": "user", "name": str(name)}:
+            return f"Создание пользователя: {name}"
+        case {"action": "delete", "id": int(item_id), "force": True}:
+            return f"Принудительное удаление объекта #{item_id}"
+        case {"action": "delete", "id": int(item_id)}:
+            return f"Мягкое удаление объекта #{item_id}"
+        case _:
+            return "Неизвестная команда"
+
+print(parse_action({"action": "create", "type": "user", "name": "Алексей"}))
+print(parse_action({"action": "delete", "id": 105, "force": True}))
+print(parse_action({"action": "unknown"}))
+`,
+  benchmark: `import time
+
+def benchmark():
+    size = 1_000_000
+    print(f"Запуск теста производительности для {size:,} элементов...")
+
+    start = time.perf_counter()
+    # Генераторное выражение и сумма квадратов
+    result = sum(i * 2 for i in range(size))
+    elapsed = (time.perf_counter() - start) * 1000
+
+    print(f"Сумма: {result:,}")
+    print(f"Время выполнения: {elapsed:.2f} миллисекунд ⚡")
+
+benchmark()
+`
+};
+
+// Initialization on DOM Load
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  loadUserProfile();
+  loadPracticeTasks();
+  loadAiSuggestions();
+  loadTemplates();
+  loadFrameworks();
+  loadArchitecture();
+  loadDatabases();
+  loadPackaging();
+  loadSnippets();
+  loadTools();
+
+  // Load default playground preset
+  const editor = document.getElementById('playground-editor');
+  if (editor) {
+    editor.value = PLAYGROUND_PRESETS.async;
+  }
+
+  // Keyboard shortcut for search (Ctrl+K / Cmd+K)
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      openSearchModal();
+    }
+    if (e.key === 'Escape') {
+      closeSearchModal();
+      closeDirectoryGenerateModal();
+    }
+  });
+});
+
+// Toast notification helper
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  const msgElem = document.getElementById('toast-message');
+  msgElem.innerText = message;
+  toast.classList.remove('translate-y-20', 'opacity-0');
+  toast.classList.add('translate-y-0', 'opacity-100');
+  setTimeout(() => {
+    toast.classList.remove('translate-y-0', 'opacity-100');
+    toast.classList.add('translate-y-20', 'opacity-0');
+  }, 3000);
+}
+
+// Copy helper
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Скопировано в буфер обмена! 📋');
+  });
+}
+
+// Tab Switching Logic
+function switchTab(tabId) {
+  currentTab = tabId;
+
+  // Update Nav buttons styling
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  const activeNavBtn = document.getElementById(`nav-${tabId}`);
+  if (activeNavBtn) activeNavBtn.classList.add('active');
+
+  // Update visible section
+  document.querySelectorAll('.tab-content').forEach(sec => {
+    sec.classList.add('hidden');
+  });
+  const activeSec = document.getElementById(`tab-${tabId}`);
+  if (activeSec) {
+    activeSec.classList.remove('hidden');
+    if (tabId === 'vscode') {
+      inspectVSCodeFile(false);
+    }
+  }
+
+  // Re-run Prism and Lucide
+  setTimeout(() => {
+    Prism.highlightAll();
+    lucide.createIcons();
+  }, 50);
+}
+
+// --- TAB 1: TEMPLATES & SCAFFOLDER ---
+async function loadTemplates() {
+  try {
+    const res = await fetch('/api/templates');
+    const templates = await res.json();
+    currentTemplatesList = templates;
+
+    const container = document.getElementById('templates-list-container');
+    container.innerHTML = '';
+
+    templates.forEach((tpl, idx) => {
+      const card = document.createElement('div');
+      card.className = `p-4 rounded-xl border cursor-pointer transition ${idx === 0 ? 'bg-sky-950/40 border-sky-500/50' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'}`;
+      card.id = `tpl-card-${tpl.id}`;
+      card.onclick = () => selectTemplate(tpl.id);
+      card.innerHTML = `
+        <div class="flex items-start space-x-3">
+          <div class="p-2.5 rounded-lg bg-slate-800 text-sky-400">
+            <i data-lucide="${tpl.icon || 'code'}" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-sm text-white">${tpl.name}</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">${tpl.files_count} файлов</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1 line-clamp-2">${tpl.description}</p>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    if (templates.length > 0) {
+      selectTemplate(templates[0].id);
+    }
+    lucide.createIcons();
+  } catch (err) {
+    console.error('Ошибка загрузки шаблонов:', err);
+  }
+}
+
+async function selectTemplate(templateId) {
+  try {
+    // Update card styling
+    currentTemplatesList.forEach(t => {
+      const el = document.getElementById(`tpl-card-${t.id}`);
+      if (el) {
+        if (t.id === templateId) {
+          el.className = 'p-4 rounded-xl border cursor-pointer transition bg-sky-950/40 border-sky-500/50 shadow-md';
+        } else {
+          el.className = 'p-4 rounded-xl border cursor-pointer transition bg-slate-900/60 border-slate-800 hover:border-slate-700';
+        }
+      }
+    });
+
+    const res = await fetch(`/api/templates/${templateId}`);
+    currentTemplate = await res.json();
+
+    document.getElementById('selected-template-name').innerText = currentTemplate.name;
+    document.getElementById('selected-template-desc').innerText = currentTemplate.description;
+
+    // Render file tabs
+    const tabsContainer = document.getElementById('file-tabs-container');
+    tabsContainer.innerHTML = '';
+
+    const fileKeys = Object.keys(currentTemplate.files);
+    fileKeys.forEach((fileName, idx) => {
+      const btn = document.createElement('button');
+      btn.className = `px-3 py-1 rounded-md text-xs font-mono font-medium transition flex items-center gap-1.5 ${idx === 0 ? 'bg-sky-600 text-white' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'}`;
+      btn.id = `file-tab-btn-${idx}`;
+      btn.onclick = () => selectFileTab(fileName, idx);
+      btn.innerHTML = `<span>${fileName}</span>`;
+      tabsContainer.appendChild(btn);
+    });
+
+    if (fileKeys.length > 0) {
+      selectFileTab(fileKeys[0], 0);
+    }
+  } catch (err) {
+    console.error('Ошибка выбора шаблона:', err);
+  }
+}
+
+function selectFileTab(fileName, index) {
+  currentSelectedFile = fileName;
+  const fileKeys = Object.keys(currentTemplate.files);
+  fileKeys.forEach((_, idx) => {
+    const btn = document.getElementById(`file-tab-btn-${idx}`);
+    if (btn) {
+      if (idx === index) {
+        btn.className = 'px-3 py-1 rounded-md text-xs font-mono font-medium transition bg-sky-600 text-white';
+      } else {
+        btn.className = 'px-3 py-1 rounded-md text-xs font-mono font-medium transition bg-slate-800/80 text-slate-400 hover:text-slate-200';
+      }
+    }
+  });
+
+  const content = currentTemplate.files[fileName] || '';
+  const codeElem = document.getElementById('current-file-code-display');
+  codeElem.textContent = content;
+
+  // Guess language
+  if (fileName.endsWith('.py')) {
+    codeElem.className = 'language-python';
+  } else if (fileName.endsWith('.toml')) {
+    codeElem.className = 'language-toml';
+  } else if (fileName.endsWith('.md') || fileName.endsWith('.txt')) {
+    codeElem.className = 'language-markdown';
+  } else {
+    codeElem.className = 'language-python';
+  }
+
+  Prism.highlightElement(codeElem);
+}
+
+function copyCurrentFileCode() {
+  if (currentTemplate && currentSelectedFile) {
+    copyToClipboard(currentTemplate.files[currentSelectedFile]);
+  }
+}
+
+function downloadCurrentProjectZip() {
+  if (!currentTemplate) return;
+  window.location.href = `/api/scaffold/download/${currentTemplate.id}?project_name=${currentTemplate.id}`;
+}
+
+function showDirectoryGenerateModal() {
+  if (!currentTemplate) return;
+  document.getElementById('modal-project-name').value = currentTemplate.id;
+  document.getElementById('dir-modal').classList.remove('hidden');
+}
+
+function closeDirectoryGenerateModal() {
+  document.getElementById('dir-modal').classList.add('hidden');
+}
+
+async function confirmGenerateToDirectory() {
+  const projectName = document.getElementById('modal-project-name').value.trim();
+  const targetDir = document.getElementById('modal-target-dir').value.trim();
+  const submitBtn = document.getElementById('modal-submit-btn');
+
+  if (!projectName || !targetDir) {
+    alert('Пожалуйста, заполните имя проекта и директорию');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'Создание файлов...';
+
+  try {
+    const res = await fetch('/api/scaffold/directory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        template_id: currentTemplate.id,
+        target_directory: targetDir,
+        project_name: projectName
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      closeDirectoryGenerateModal();
+      showToast(`Проект успешно создан в ${data.directory}! 🎉`);
+    } else {
+      alert(`Ошибка: ${data.detail || 'Не удалось создать проект'}`);
+    }
+  } catch (err) {
+    alert(`Ошибка соединения: ${err.message}`);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'Сгенерировать проект';
+  }
+}
+
+// --- TAB 2: FRAMEWORKS ---
+async function loadFrameworks() {
+  try {
+    const res = await fetch('/api/frameworks');
+    allFrameworks = await res.json();
+    renderFrameworkCards(allFrameworks);
+  } catch (err) {
+    console.error('Ошибка загрузки фреймворков:', err);
+  }
+}
+
+function filterFrameworks(cat) {
+  // Update buttons
+  document.querySelectorAll('.fw-filter-btn').forEach(btn => {
+    btn.className = 'fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700';
+  });
+  event.target.className = 'fw-filter-btn px-3.5 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30';
+
+  if (cat === 'all') {
+    renderFrameworkCards(allFrameworks);
+  } else {
+    const filtered = allFrameworks.filter(f => f.category === cat);
+    renderFrameworkCards(filtered);
+  }
+}
+
+function renderFrameworkCards(frameworks) {
+  const container = document.getElementById('frameworks-cards-container');
+  container.innerHTML = '';
+
+  frameworks.forEach(fw => {
+    const card = document.createElement('div');
+    card.className = 'glass-card rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between';
+
+    const prosHtml = fw.pros.map(p => `<li class="flex items-start gap-1.5"><span class="text-emerald-400">✓</span> <span>${p}</span></li>`).join('');
+    const consHtml = fw.cons.map(c => `<li class="flex items-start gap-1.5"><span class="text-amber-400">✗</span> <span>${c}</span></li>`).join('');
+
+    card.innerHTML = `
+      <div class="space-y-4">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sky-400">
+              <i data-lucide="${fw.icon || 'layers'}" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-lg text-white">${fw.name}</h3>
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium">${fw.badge}</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-300 leading-relaxed">${fw.description}</p>
+
+        <!-- Pros / Cons -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="bg-emerald-950/20 border border-emerald-500/20 p-3 rounded-xl">
+            <div class="font-bold text-emerald-400 mb-1.5">Преимущества:</div>
+            <ul class="space-y-1 text-slate-300">${prosHtml}</ul>
+          </div>
+          <div class="bg-amber-950/20 border border-amber-500/20 p-3 rounded-xl">
+            <div class="font-bold text-amber-400 mb-1.5">Особенности:</div>
+            <ul class="space-y-1 text-slate-300">${consHtml}</ul>
+          </div>
+        </div>
+
+        <!-- Quickstart snippet -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>Установка: <code class="text-sky-400 bg-slate-900 px-2 py-0.5 rounded">${fw.install}</code></span>
+            <div class="flex space-x-2">
+              <button onclick="sendToPlayground(${JSON.stringify(fw.quickstart).replace(/"/g, '&quot;')})" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> В песочницу
+              </button>
+              <button onclick="copyToClipboard(${JSON.stringify(fw.quickstart).replace(/"/g, '&quot;')})" class="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Копировать
+              </button>
+            </div>
+          </div>
+          <div class="max-h-48 overflow-y-auto rounded-lg border border-slate-800">
+            <pre class="m-0"><code class="language-python">${escapeHtml(fw.quickstart)}</code></pre>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  Prism.highlightAll();
+  lucide.createIcons();
+}
+
+// --- TAB 3: ARCHITECTURE ---
+async function loadArchitecture() {
+  try {
+    const res = await fetch('/api/architecture');
+    const topics = await res.json();
+    renderTopicCards('architecture-cards-container', topics);
+  } catch (err) {
+    console.error('Ошибка загрузки архитектуры:', err);
+  }
+}
+
+// --- TAB 4: DATABASES ---
+async function loadDatabases() {
+  try {
+    const res = await fetch('/api/databases');
+    const topics = await res.json();
+    renderTopicCards('databases-cards-container', topics);
+  } catch (err) {
+    console.error('Ошибка загрузки баз данных:', err);
+  }
+}
+
+// --- TAB 5: PACKAGING ---
+async function loadPackaging() {
+  try {
+    const res = await fetch('/api/packaging');
+    const topics = await res.json();
+    renderTopicCards('packaging-cards-container', topics);
+  } catch (err) {
+    console.error('Ошибка загрузки упаковки:', err);
+  }
+}
+
+// --- TAB 7: TOOLS ---
+async function loadTools() {
+  try {
+    const res = await fetch('/api/tools');
+    const topics = await res.json();
+    renderTopicCards('tools-cards-container', topics);
+  } catch (err) {
+    console.error('Ошибка загрузки инструментов:', err);
+  }
+}
+
+// Render generic knowledge topic cards
+function renderTopicCards(containerId, topics) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  topics.forEach(topic => {
+    const card = document.createElement('div');
+    card.className = 'glass-panel rounded-2xl p-6 border border-slate-800 space-y-4';
+    card.id = `topic-${topic.id}`;
+
+    // Convert markdown content to styled blocks
+    const parsedHtml = formatMarkdownContent(topic.content);
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between border-b border-slate-800/80 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="p-2.5 rounded-xl bg-slate-800 text-sky-400 border border-slate-700/50">
+            <i data-lucide="${topic.icon || 'book-open'}" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-white">${topic.title}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">${topic.summary}</p>
+          </div>
+        </div>
+      </div>
+      <div class="prose prose-invert max-w-none text-sm text-slate-300 space-y-3">
+        ${parsedHtml}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  Prism.highlightAll();
+  lucide.createIcons();
+}
+
+// --- TAB 6: SNIPPETS ---
+async function loadSnippets() {
+  try {
+    const res = await fetch('/api/snippets');
+    allSnippets = await res.json();
+    renderSnippetCards(allSnippets);
+  } catch (err) {
+    console.error('Ошибка загрузки сниппетов:', err);
+  }
+}
+
+function searchSnippets() {
+  const query = document.getElementById('snippet-search-input').value.toLowerCase().trim();
+  if (!query) {
+    renderSnippetCards(allSnippets);
+    return;
+  }
+  const filtered = allSnippets.filter(s => {
+    const tagsStr = (s.tags || []).join(' ').toLowerCase();
+    return s.title.toLowerCase().includes(query) ||
+           s.description.toLowerCase().includes(query) ||
+           tagsStr.includes(query) ||
+           s.category.toLowerCase().includes(query);
+  });
+  renderSnippetCards(filtered);
+}
+
+function renderSnippetCards(snippets) {
+  const container = document.getElementById('snippets-cards-container');
+  container.innerHTML = '';
+
+  if (snippets.length === 0) {
+    container.innerHTML = '<p class="text-slate-500 text-center py-12">Сниппеты не найдены.</p>';
+    return;
+  }
+
+  snippets.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'glass-card rounded-2xl p-6 border border-slate-800 space-y-4';
+
+    const tagsHtml = (s.tags || []).map(t => `<span class="px-2 py-0.5 rounded bg-slate-800 text-sky-400 text-[11px] font-mono border border-slate-700/50">#${t}</span>`).join(' ');
+
+    card.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+        <div>
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">${s.category}</span>
+          <h3 class="font-bold text-base text-white mt-0.5">${s.title}</h3>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="sendToPlayground(${JSON.stringify(s.code).replace(/"/g, '&quot;')})" class="px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Песочница
+          </button>
+          <button onclick="copyToClipboard(${JSON.stringify(s.code).replace(/"/g, '&quot;')})" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Копировать
+          </button>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-300">${s.description}</p>
+      <div class="flex flex-wrap gap-1.5">${tagsHtml}</div>
+
+      <div class="rounded-xl border border-slate-800 overflow-hidden">
+        <pre class="m-0"><code class="language-python">${escapeHtml(s.code)}</code></pre>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  Prism.highlightAll();
+  lucide.createIcons();
+}
+
+// --- TAB 8: PLAYGROUND ---
+function loadPlaygroundPreset() {
+  const val = document.getElementById('playground-preset-select').value;
+  if (PLAYGROUND_PRESETS[val]) {
+    document.getElementById('playground-editor').value = PLAYGROUND_PRESETS[val];
+  }
+}
+
+function sendToPlayground(code) {
+  switchTab('playground');
+  document.getElementById('playground-editor').value = code;
+  document.getElementById('playground-output').innerText = 'Код загружен. Нажмите «Запустить код»...';
+}
+
+async function runPlaygroundCode() {
+  const code = document.getElementById('playground-editor').value;
+  const outputElem = document.getElementById('playground-output');
+  const timerElem = document.getElementById('playground-timer');
+  const runBtn = document.getElementById('run-code-btn');
+
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Выполнение...</span>';
+  lucide.createIcons();
+
+  timerElem.innerText = '⏱️ Запуск процесса...';
+  outputElem.innerText = 'Исполнение кода на локальном интерпретаторе Python...';
+
+  try {
+    const res = await fetch('/api/sandbox/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, timeout: 6.0 })
+    });
+
+    const data = await res.json();
+    timerElem.innerText = `⏱️ Время: ${data.execution_time_ms} мс`;
+
+    let out = '';
+    if (data.stdout) {
+      out += data.stdout;
+    }
+    if (data.stderr) {
+      out += (out ? '\n--- Ошибки (stderr) ---\n' : '') + data.stderr;
+    }
+    if (!out) {
+      out = '(Программа завершилась успешно без текстового вывода stdout)';
+    }
+
+    outputElem.innerText = out;
+  } catch (err) {
+    outputElem.innerText = `Ошибка песочницы: ${err.message}`;
+  } finally {
+    runBtn.disabled = false;
+    runBtn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i><span>Запустить код</span>';
+    lucide.createIcons();
+  }
+}
+
+// --- INTERACTIVE PYINSTALLER COMMAND BUILDER ---
+function updatePyInstallerCommand() {
+  const onefile = document.getElementById('pyinst-onefile').checked;
+  const windowed = document.getElementById('pyinst-windowed').checked;
+  const clean = document.getElementById('pyinst-clean').checked;
+  const appName = document.getElementById('pyinst-appname').value.trim() || 'MySuperApp';
+  const script = document.getElementById('pyinst-script').value.trim() || 'src/main.py';
+
+  let cmd = 'pyinstaller --noconfirm';
+  if (onefile) cmd += ' --onefile';
+  else cmd += ' --onedir';
+
+  if (windowed) cmd += ' --windowed';
+  if (clean) cmd += ' --clean';
+
+  cmd += ` --name "${appName}" ${script}`;
+
+  document.getElementById('pyinst-cmd-output').innerText = cmd;
+}
+
+// --- GLOBAL SEARCH MODAL ---
+function openSearchModal() {
+  document.getElementById('search-modal').classList.remove('hidden');
+  const input = document.getElementById('modal-search-input');
+  input.value = '';
+  input.focus();
+  document.getElementById('modal-search-results').innerHTML = '<p class="text-xs text-slate-500 text-center py-6">Начните вводить текст для поиска по всей базе знаний...</p>';
+}
+
+function closeSearchModal() {
+  document.getElementById('search-modal').classList.add('hidden');
+}
+
+async function performGlobalSearch() {
+  const q = document.getElementById('modal-search-input').value.trim();
+  const resultsContainer = document.getElementById('modal-search-results');
+
+  if (q.length < 2) {
+    resultsContainer.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">Введите минимум 2 символа для поиска...</p>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    const results = await res.json();
+
+    if (results.length === 0) {
+      resultsContainer.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">Ничего не найдено по вашему запросу.</p>';
+      return;
+    }
+
+    resultsContainer.innerHTML = '';
+    results.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'p-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/50 cursor-pointer transition flex items-start justify-between gap-3';
+      row.onclick = () => {
+        closeSearchModal();
+        switchTab(item.tab);
+        setTimeout(() => {
+          const targetEl = document.getElementById(`topic-${item.id}`);
+          if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+      };
+
+      row.innerHTML = `
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-500/30 font-medium">${item.type}</span>
+            <h4 class="text-sm font-bold text-white">${item.title}</h4>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">${item.snippet}</p>
+        </div>
+        <i data-lucide="arrow-right" class="w-4 h-4 text-slate-500 flex-shrink-0 mt-1"></i>
+      `;
+      resultsContainer.appendChild(row);
+    });
+
+    lucide.createIcons();
+  } catch (err) {
+    console.error('Ошибка поиска:', err);
+  }
+}
+
+// Helpers
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatMarkdownContent(raw) {
+  if (!raw) return '';
+  // Basic markdown conversion for headers, code fences, bold, and tables
+  let html = raw;
+
+  // Code blocks with language
+  html = html.replace(/```([a-zA-Z0-9_\-]+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+    const l = lang || 'python';
+    return `<pre class="language-${l}"><code class="language-${l}">${escapeHtml(code.trim())}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-900 px-1.5 py-0.5 rounded text-sky-300 font-mono text-xs">$1</code>');
+
+  // Headers
+  html = html.replace(/^### (.*$)/gim, '<h4 class="text-base font-bold text-white mt-4 mb-2">$1</h4>');
+  html = html.replace(/^#### (.*$)/gim, '<h5 class="text-sm font-bold text-sky-300 mt-3 mb-1.5">$1</h5>');
+
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+
+  return html;
+}
+
+// --- TAB: AI SCOUT ---
+async function loadAiSuggestions() {
+  try {
+    const res = await fetch('/api/ai/suggestions');
+    const suggestions = await res.json();
+    const container = document.getElementById('ai-suggestions-chips');
+    if (!container) return;
+    container.innerHTML = '';
+
+    suggestions.forEach(item => {
+      const chip = document.createElement('button');
+      chip.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition flex items-center gap-1.5';
+      chip.onclick = () => setAiScoutQuery(item.query);
+      chip.innerText = item.label;
+      container.appendChild(chip);
+    });
+  } catch (err) {
+    console.error('Ошибка загрузки подсказок AI:', err);
+  }
+}
+
+function toggleLlmConfigDrawer() {
+  const panel = document.getElementById('llm-config-panel');
+  if (panel) {
+    panel.classList.toggle('hidden');
+  }
+}
+
+function setAiScoutQuery(query) {
+  const input = document.getElementById('ai-scout-input');
+  if (input) {
+    input.value = query;
+    performAiScoutSearch();
+  }
+}
+
+async function performAiScoutSearch() {
+  const input = document.getElementById('ai-scout-input');
+  const query = input.value.trim();
+  const mode = document.getElementById('ai-scout-mode').value;
+  const resultsContainer = document.getElementById('ai-scout-results');
+  const btn = document.getElementById('ai-scout-btn');
+
+  if (!query) {
+    alert('Пожалуйста, введите тему или задачу для поиска');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>ИИ анализирует...</span>';
+  lucide.createIcons();
+
+  resultsContainer.innerHTML = `
+    <div class="p-12 text-center text-slate-400 space-y-3">
+      <div class="inline-block p-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 animate-pulse">
+        <i data-lucide="bot" class="w-8 h-8 text-emerald-400"></i>
+      </div>
+      <h4 class="font-bold text-base text-white">ИИ ищет лучшие библиотеки и исходники...</h4>
+      <p class="text-xs text-slate-500">Анализ темы: «${escapeHtml(query)}»</p>
+    </div>
+  `;
+  lucide.createIcons();
+
+  // Get LLM config if mode is LLM
+  let llmConfig = null;
+  if (mode === 'llm') {
+    llmConfig = {
+      endpoint: document.getElementById('ai-llm-endpoint').value.trim(),
+      api_key: document.getElementById('ai-llm-key').value.trim(),
+      model: document.getElementById('ai-llm-model').value.trim()
+    };
+  }
+
+  try {
+    const res = await fetch('/api/ai/scout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query,
+        mode: mode,
+        llm_config: llmConfig
+      })
+    });
+
+    const data = await res.json();
+    renderAiScoutResults(data);
+  } catch (err) {
+    resultsContainer.innerHTML = `
+      <div class="p-6 rounded-2xl bg-red-950/20 border border-red-500/30 text-red-300 text-sm">
+        Ошибка при выполнении поиска: ${escapeHtml(err.message)}
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i><span>Найти решения</span>';
+    lucide.createIcons();
+  }
+}
+
+function renderAiScoutResults(data) {
+  const container = document.getElementById('ai-scout-results');
+  container.innerHTML = '';
+
+  // 1. AI Summary Header
+  const summaryCard = document.createElement('div');
+  summaryCard.className = 'glass-panel rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-slate-900/50 to-slate-900/50 space-y-2';
+  summaryCard.innerHTML = `
+    <div class="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
+      <span>Вердикт ИИ-Ассистента</span>
+    </div>
+    <h3 class="text-lg font-bold text-white">${data.topic_title || 'Рекомендации по вашему запросу'}</h3>
+    <p class="text-sm text-slate-300 leading-relaxed">${escapeHtml(data.summary)}</p>
+  `;
+  container.appendChild(summaryCard);
+
+  // 2. Libraries Cards
+  if (data.libraries && data.libraries.length > 0) {
+    const libsGrid = document.createElement('div');
+    libsGrid.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
+
+    data.libraries.forEach(lib => {
+      const card = document.createElement('div');
+      card.className = 'glass-card rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between';
+
+      card.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center space-x-2">
+                <h4 class="font-bold text-lg text-white">${escapeHtml(lib.name)}</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">${escapeHtml(lib.badge || 'Рекомендовано')}</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1 leading-relaxed">${escapeHtml(lib.description)}</p>
+            </div>
+          </div>
+
+          <!-- Direct links -->
+          <div class="flex flex-wrap gap-2 text-xs">
+            ${lib.docs ? `<a href="${lib.docs}" target="_blank" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 flex items-center gap-1 border border-slate-700 transition"><i data-lucide="book-open" class="w-3.5 h-3.5"></i> Документация</a>` : ''}
+            ${lib.github ? `<a href="${lib.github}" target="_blank" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1 border border-slate-700 transition"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>` : ''}
+            ${lib.pypi ? `<a href="https://pypi.org/project/${lib.pypi}/" target="_blank" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 flex items-center gap-1 border border-slate-700 transition"><i data-lucide="package" class="w-3.5 h-3.5"></i> PyPI</a>` : ''}
+          </div>
+
+          <!-- Install snippet -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Установка:</span>
+              <button onclick="copyToClipboard('${escapeHtml(lib.install)}')" class="text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Копировать
+              </button>
+            </div>
+            <div class="bg-black/70 rounded-lg p-2.5 border border-slate-800 font-mono text-xs text-emerald-400 select-all">
+              ${escapeHtml(lib.install)}
+            </div>
+          </div>
+
+          <!-- Code Snippet -->
+          ${lib.code ? `
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Пример использования:</span>
+              <div class="flex space-x-2">
+                <button onclick="sendToPlayground(${JSON.stringify(lib.code).replace(/"/g, '&quot;')})" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i> В песочницу
+                </button>
+                <button onclick="copyToClipboard(${JSON.stringify(lib.code).replace(/"/g, '&quot;')})" class="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Копировать
+                </button>
+              </div>
+            </div>
+            <div class="max-h-48 overflow-y-auto rounded-lg border border-slate-800">
+              <pre class="m-0"><code class="language-python">${escapeHtml(lib.code)}</code></pre>
+            </div>
+          </div>` : ''}
+        </div>
+      `;
+      libsGrid.appendChild(card);
+    });
+
+    container.appendChild(libsGrid);
+  }
+
+  // 3. Official sources & articles
+  if (data.sources && data.sources.length > 0) {
+    const sourcesCard = document.createElement('div');
+    sourcesCard.className = 'glass-panel rounded-2xl p-5 border border-slate-800 space-y-3';
+    
+    const linksHtml = data.sources.map(s => `
+      <a href="${s.url}" target="_blank" class="p-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 flex items-center justify-between transition text-xs text-slate-300 hover:text-white">
+        <span class="font-medium flex items-center gap-2">
+          <i data-lucide="link" class="w-3.5 h-3.5 text-sky-400"></i>
+          ${escapeHtml(s.title)}
+        </span>
+        <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-500"></i>
+      </a>
+    `).join('');
+
+    sourcesCard.innerHTML = `
+      <h4 class="text-sm font-bold text-white flex items-center gap-2">
+        <i data-lucide="globe" class="w-4 h-4 text-sky-400"></i>
+        Полезные ссылки и источники по теме:
+      </h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${linksHtml}
+      </div>
+    `;
+    container.appendChild(sourcesCard);
+  }
+
+  Prism.highlightAll();
+  lucide.createIcons();
+}
+
+// --- TAB: PRACTICE QUESTS & GAMIFICATION & REALTIME AI MENTOR ---
+let allPracticeTasks = [];
+let currentPracticeTask = null;
+let userProfile = null;
+let mentorDebounceTimer = null;
+let lastMentorSuggestedFix = null;
+
+async function loadUserProfile() {
+  try {
+    const res = await fetch('/api/practice/profile');
+    userProfile = await res.json();
+    
+    // Update Header Widget
+    const starsElem = document.getElementById('header-stars-count');
+    const titleElem = document.getElementById('header-active-title');
+    const shopStarsElem = document.getElementById('shop-stars-balance');
+    
+    if (starsElem) starsElem.innerText = userProfile.stars;
+    if (titleElem) titleElem.innerText = userProfile.active_title ? userProfile.active_title.name : 'Начинающий';
+    if (shopStarsElem) shopStarsElem.innerText = userProfile.stars;
+  } catch (err) {
+    console.error('Ошибка загрузки профиля:', err);
+  }
+}
+
+async function loadPracticeTasks() {
+  try {
+    const res = await fetch('/api/practice/tasks');
+    allPracticeTasks = await res.json();
+    renderPracticeTasks(allPracticeTasks);
+
+    if (allPracticeTasks.length > 0 && !currentPracticeTask) {
+      selectPracticeTask(allPracticeTasks[0].id);
+    }
+  } catch (err) {
+    console.error('Ошибка загрузки заданий практики:', err);
+  }
+}
+
+function filterPracticeTasks(diff) {
+  // Update buttons
+  const container = document.getElementById('practice-filter-btns');
+  if (container) {
+    container.querySelectorAll('button').forEach(btn => {
+      btn.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200';
+    });
+    event.target.className = 'px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30';
+  }
+
+  if (diff === 'all') {
+    renderPracticeTasks(allPracticeTasks);
+  } else {
+    const filtered = allPracticeTasks.filter(t => t.difficulty === diff);
+    renderPracticeTasks(filtered);
+  }
+}
+
+function renderPracticeTasks(tasks) {
+  const container = document.getElementById('practice-tasks-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  tasks.forEach(task => {
+    const isSelected = currentPracticeTask && currentPracticeTask.id === task.id;
+    const item = document.createElement('div');
+    item.id = `practice-task-item-${task.id}`;
+    item.className = `p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${isSelected ? 'bg-sky-950/40 border-sky-500/50 shadow-md' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'}`;
+    item.onclick = () => selectPracticeTask(task.id);
+
+    const diffBadgeColor = task.difficulty === 'Junior' ? 'text-emerald-400 bg-emerald-950/30 border-emerald-500/30' :
+                           task.difficulty === 'Middle' ? 'text-sky-400 bg-sky-950/30 border-sky-500/30' :
+                           task.difficulty === 'Senior' ? 'text-purple-400 bg-purple-950/30 border-purple-500/30' :
+                           'text-amber-400 bg-amber-950/30 border-amber-500/30';
+
+    item.innerHTML = `
+      <div class="flex items-center space-x-2.5 overflow-hidden">
+        <span class="flex-shrink-0 text-sm">${task.is_solved ? '✅' : '📌'}</span>
+        <div class="truncate">
+          <h5 class="text-xs font-bold text-white truncate">${escapeHtml(task.title)}</h5>
+          <span class="text-[10px] text-slate-400 truncate block">${escapeHtml(task.category)}</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 flex-shrink-0">
+        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-medium border ${diffBadgeColor}">${task.difficulty}</span>
+        <span class="text-xs font-bold text-amber-400 flex items-center gap-0.5">
+          <i data-lucide="star" class="w-3 h-3 fill-amber-400"></i> +${task.reward_stars}
+        </span>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  lucide.createIcons();
+}
+
+function selectPracticeTask(taskId) {
+  const task = allPracticeTasks.find(t => t.id === taskId);
+  if (!task) return;
+  currentPracticeTask = task;
+
+  // Update list active card style
+  allPracticeTasks.forEach(t => {
+    const el = document.getElementById(`practice-task-item-${t.id}`);
+    if (el) {
+      if (t.id === taskId) {
+        el.className = 'p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-sky-950/40 border-sky-500/50 shadow-md';
+      } else {
+        el.className = 'p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-slate-900/60 border-slate-800 hover:border-slate-700';
+      }
+    }
+  });
+
+  // Update Task detail card
+  document.getElementById('task-detail-title').innerText = task.title;
+  document.getElementById('task-detail-category').innerText = task.category;
+  document.getElementById('task-detail-reward').innerText = `+${task.reward_stars} ⭐`;
+  document.getElementById('task-detail-desc').innerText = task.description;
+
+  // Set editor starter code
+  const editor = document.getElementById('practice-code-editor');
+  editor.value = task.starter_code;
+
+  // Clear test results
+  document.getElementById('practice-test-results').innerHTML = '<p class="text-slate-500 text-center py-4">Нажмите «Проверить решение» для запуска тестов.</p>';
+  document.getElementById('tests-status-badge').innerText = 'Тесты готовы к запуску';
+  document.getElementById('tests-status-badge').className = 'text-[11px] font-mono text-slate-400';
+
+  // Trigger instant mentor check
+  onPracticeCodeInput();
+}
+
+function resetPracticeCode() {
+  if (currentPracticeTask) {
+    document.getElementById('practice-code-editor').value = currentPracticeTask.starter_code;
+    onPracticeCodeInput();
+  }
+}
+
+// --- REAL-TIME AI ERROR MENTOR LISTENER ---
+function onPracticeCodeInput() {
+  clearTimeout(mentorDebounceTimer);
+  mentorDebounceTimer = setTimeout(async () => {
+    const code = document.getElementById('practice-code-editor').value;
+    await inspectCodeWithMentor(code);
+  }, 350);
+}
+
+async function inspectCodeWithMentor(code) {
+  try {
+    const res = await fetch('/api/mentor/inspect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    });
+    const report = await res.json();
+    renderMentorReport(report);
+  } catch (err) {
+    console.error('Ошибка проверки ментора:', err);
+  }
+}
+
+function renderMentorReport(report) {
+  const beacon = document.getElementById('mentor-beacon');
+  const beaconText = document.getElementById('mentor-beacon-text');
+  const msgElem = document.getElementById('mentor-message');
+  const lineTag = document.getElementById('mentor-line-tag');
+  const solutionBox = document.getElementById('mentor-solution-box');
+  const hintElem = document.getElementById('mentor-hint');
+  const applyBtn = document.getElementById('mentor-apply-btn');
+
+  lastMentorSuggestedFix = report.suggested_fix;
+
+  if (report.status === 'clean') {
+    beacon.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold';
+    beacon.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Код чист</span>';
+    msgElem.innerText = report.message;
+    lineTag.classList.add('hidden');
+    solutionBox.classList.add('hidden');
+  } else if (report.status === 'warning') {
+    beacon.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold';
+    beacon.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span>Внимание</span>';
+    msgElem.innerText = report.message;
+    lineTag.classList.remove('hidden');
+    lineTag.innerText = `Строка ${report.line}`;
+    lineTag.className = 'text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 font-mono border border-amber-500/30';
+    
+    if (report.hint) {
+      solutionBox.classList.remove('hidden');
+      hintElem.innerText = report.hint;
+    } else {
+      solutionBox.classList.add('hidden');
+    }
+    applyBtn.classList.add('hidden');
+  } else {
+    // Error
+    beacon.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-semibold';
+    beacon.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span><span>Ошибка</span>';
+    msgElem.innerText = report.message;
+    
+    if (report.line) {
+      lineTag.classList.remove('hidden');
+      lineTag.innerText = `Строка ${report.line}`;
+      lineTag.className = 'text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-mono border border-red-500/30';
+    } else {
+      lineTag.classList.add('hidden');
+    }
+
+    if (report.hint) {
+      solutionBox.classList.remove('hidden');
+      hintElem.innerText = report.hint;
+      if (report.suggested_fix) {
+        applyBtn.classList.remove('hidden');
+      } else {
+        applyBtn.classList.add('hidden');
+      }
+    } else {
+      solutionBox.classList.add('hidden');
+    }
+  }
+}
+
+function applyMentorFix() {
+  if (lastMentorSuggestedFix) {
+    document.getElementById('practice-code-editor').value = lastMentorSuggestedFix;
+    showToast('Исправление применено! 🔧');
+    onPracticeCodeInput();
+  }
+}
+
+// --- SUBMIT PRACTICE SOLUTION ---
+async function submitPracticeSolution() {
+  if (!currentPracticeTask) return;
+  const code = document.getElementById('practice-code-editor').value;
+  const btn = document.getElementById('submit-solution-btn');
+  const resultsContainer = document.getElementById('practice-test-results');
+  const badge = document.getElementById('tests-status-badge');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Проверка...</span>';
+  lucide.createIcons();
+
+  resultsContainer.innerHTML = '<p class="text-slate-400 text-center py-4 animate-pulse">Выполнение тест-кейсов в изолированной среде...</p>';
+
+  try {
+    const res = await fetch('/api/practice/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id: currentPracticeTask.id,
+        code: code
+      })
+    });
+
+    const report = await res.json();
+    
+    if (report.success) {
+      badge.innerText = `✅ ВСЕ ТЕСТЫ ПРОЙДЕНЫ (${report.execution_time_ms} мс)`;
+      badge.className = 'text-[11px] font-mono text-emerald-400 font-bold';
+
+      if (report.award_info && report.award_info.is_first_solve) {
+        showToast(`🎉 Потрясающе! Вы заработали +${report.award_info.awarded_stars} ⭐!`);
+        await loadUserProfile();
+        await loadPracticeTasks();
+      } else {
+        showToast('Задание успешно решено повторно! 👍');
+      }
+    } else {
+      badge.innerText = '❌ ОШИБКА В ТЕСТАХ';
+      badge.className = 'text-[11px] font-mono text-red-400 font-bold';
+    }
+
+    // Render individual test case rows
+    resultsContainer.innerHTML = '';
+    if (report.test_results && report.test_results.length > 0) {
+      report.test_results.forEach((tc, idx) => {
+        const row = document.createElement('div');
+        row.className = `p-2.5 rounded-lg border flex items-center justify-between text-xs ${tc.passed ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' : 'bg-red-950/20 border-red-500/30 text-red-300'}`;
+        row.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span>${tc.passed ? '✅' : '❌'}</span>
+            <span class="font-bold">${escapeHtml(tc.name || `Тест #${idx+1}`)}</span>
+          </div>
+          <div class="font-mono text-[11px] text-slate-400">
+            Ожидалось: <span class="text-slate-200">${escapeHtml(JSON.stringify(tc.expected))}</span> | Получено: <span class="${tc.passed ? 'text-emerald-400' : 'text-red-400 font-bold'}">${escapeHtml(JSON.stringify(tc.actual))}</span>
+          </div>
+        `;
+        resultsContainer.appendChild(row);
+      });
+    } else {
+      resultsContainer.innerHTML = `<div class="p-3 bg-red-950/20 border border-red-500/30 rounded-lg text-red-300">${escapeHtml(report.summary)}</div>`;
+    }
+
+  } catch (err) {
+    resultsContainer.innerHTML = `<div class="p-3 bg-red-950/20 border border-red-500/30 rounded-lg text-red-300">Ошибка отправки: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Проверить решение</span>';
+    lucide.createIcons();
+  }
+}
+
+// --- TITLE SHOP MODAL ---
+async function openTitleShopModal() {
+  await loadUserProfile();
+  const modal = document.getElementById('title-shop-modal');
+  const container = document.getElementById('shop-titles-container');
+  modal.classList.remove('hidden');
+
+  container.innerHTML = '';
+  userProfile.shop_titles.forEach(t => {
+    const card = document.createElement('div');
+    card.className = `p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${t.color}`;
+
+    let actionBtnHtml = '';
+    if (t.is_active) {
+      actionBtnHtml = '<span class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30 flex items-center gap-1">✓ Экипирован</span>';
+    } else if (t.is_unlocked) {
+      actionBtnHtml = `<button onclick="equipTitle('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-600 transition">Экипировать</button>`;
+    } else if (t.can_afford) {
+      actionBtnHtml = `<button onclick="buyTitle('${t.id}')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition flex items-center gap-1"><i data-lucide="star" class="w-3.5 h-3.5 fill-black"></i> Купить (${t.cost_stars} ⭐)</button>`;
+    } else {
+      actionBtnHtml = `<button disabled class="px-3 py-1.5 rounded-lg bg-slate-800/40 text-slate-500 text-xs font-medium cursor-not-allowed border border-slate-800">Нужно ${t.cost_stars} ⭐</button>`;
+    }
+
+    card.innerHTML = `
+      <div class="space-y-1">
+        <div class="flex items-center space-x-2">
+          <h4 class="font-bold text-base text-white">${t.name}</h4>
+          <span class="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-black/40">${t.rarity}</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">${t.description}</p>
+      </div>
+      <div class="flex-shrink-0">${actionBtnHtml}</div>
+    `;
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+}
+
+function closeTitleShopModal() {
+  document.getElementById('title-shop-modal').classList.add('hidden');
+}
+
+async function buyTitle(titleId) {
+  try {
+    const res = await fetch('/api/practice/buy-title', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title_id: titleId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(data.message);
+      await loadUserProfile();
+      openTitleShopModal();
+    } else {
+      alert(data.detail || 'Не удалось купить титул');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function equipTitle(titleId) {
+  try {
+    const res = await fetch('/api/practice/set-active-title', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title_id: titleId })
+    });
+    if (res.ok) {
+      showToast('Титул успешно экипирован! 👑');
+      await loadUserProfile();
+      openTitleShopModal();
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// --- AI TASK GENERATOR MODAL ---
+function generateAiPracticeTaskModal() {
+  document.getElementById('ai-task-gen-modal').classList.remove('hidden');
+}
+
+function closeAiTaskGenModal() {
+  document.getElementById('ai-task-gen-modal').classList.add('hidden');
+}
+
+async function confirmGenerateAiTask() {
+  const topic = document.getElementById('ai-gen-topic').value.trim() || 'алгоритмы';
+  const difficulty = document.getElementById('ai-gen-difficulty').value;
+  const btn = document.getElementById('ai-gen-submit-btn');
+
+  btn.disabled = true;
+  btn.innerText = 'Генерация...';
+
+  try {
+    const res = await fetch('/api/practice/generate-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: topic, difficulty: difficulty })
+    });
+    const newTask = await res.json();
+    
+    // Add to task list and select
+    allPracticeTasks.unshift(newTask);
+    renderPracticeTasks(allPracticeTasks);
+    selectPracticeTask(newTask.id);
+    closeAiTaskGenModal();
+    showToast(`ИИ-квест «${newTask.title}» создан! 🚀`);
+  } catch (err) {
+    alert(`Ошибка генерации: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Создать квест';
+  }
+}
+
+// --- LIBRARY TASK RANDOMIZER ---
+async function generateRandomLibraryTask() {
+  const libSelect = document.getElementById('practice-library-select');
+  const diffSelect = document.getElementById('practice-diff-select');
+  const btn = document.getElementById('btn-gen-library-task');
+
+  const library = libSelect ? libSelect.value : 'fastapi';
+  const difficulty = diffSelect ? diffSelect.value : null;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Генерация...</span>';
+    lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/practice/random-by-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library: library, difficulty: difficulty || null })
+    });
+    const data = await res.json();
+    if (data.success && data.task) {
+      const task = data.task;
+      // Prepend to practice list
+      const existingIdx = allPracticeTasks.findIndex(t => t.id === task.id);
+      if (existingIdx === -1) {
+        allPracticeTasks.unshift(task);
+      }
+      renderPracticeTasks(allPracticeTasks);
+      selectPracticeTask(task.id);
+      showToast(`🎲 Создана задача по ${library.toUpperCase()}! Награда: ⭐ ${task.reward_stars} звезд.`);
+    } else {
+      showToast('Не удалось сгенерировать задачу');
+    }
+  } catch (err) {
+    alert(`Ошибка генератора: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="shuffle" class="w-3.5 h-3.5"></i><span>🎲 Сгенерировать задачу</span>';
+      lucide.createIcons();
+    }
+  }
+}
+
+// --- VS CODE BRIDGE SERVICE ---
+let currentVSCodeFilePath = 'run.py';
+let lastVSCodeFixCode = null;
+let vsCodeWatchTimer = null;
+
+async function inspectVSCodeFile(silent = false) {
+  const pathInput = document.getElementById('vscode-file-input');
+  const filePath = (pathInput ? pathInput.value.trim() : '') || 'run.py';
+  currentVSCodeFilePath = filePath;
+
+  const btn = document.getElementById('btn-inspect-vscode-file');
+  if (!silent && btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Анализ...</span>';
+    lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/vscode/inspect-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_path: filePath })
+    });
+    const data = await res.json();
+
+    const infoBar = document.getElementById('vscode-file-info-bar');
+    const nameDisplay = document.getElementById('vscode-file-name-display');
+    const sizeDisplay = document.getElementById('vscode-file-size-display');
+    const preview = document.getElementById('vscode-code-preview');
+    const counter = document.getElementById('vscode-issues-counter');
+    const issuesContainer = document.getElementById('vscode-issues-container');
+    const saveFixBtn = document.getElementById('btn-save-disk-fix');
+
+    if (!data.success) {
+      if (!silent) {
+        if (counter) counter.innerText = 'Ошибка открытия файла';
+        if (issuesContainer) {
+          issuesContainer.innerHTML = `<div class="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-red-300">${escapeHtml(data.error || 'Файл не найден')}</div>`;
+        }
+      }
+      return;
+    }
+
+    if (infoBar) infoBar.classList.remove('hidden');
+    if (nameDisplay) nameDisplay.innerText = data.file_name;
+    if (sizeDisplay) sizeDisplay.innerText = `(${(data.file_size / 1024).toFixed(1)} KB)`;
+    if (preview && (!preview.value || preview.dataset.autoSync !== 'false')) {
+      preview.value = data.code;
+    }
+
+    const issues = (data.analysis && data.analysis.issues) ? data.analysis.issues : [];
+    if (counter) {
+      counter.innerText = issues.length === 0 ? '✨ Ошибок не обнаружено' : `Найдено проблем: ${issues.length}`;
+      counter.className = issues.length === 0 ? 'text-emerald-400 font-mono text-[11px] font-bold' : 'text-amber-400 font-mono text-[11px] font-bold';
+    }
+
+    if (issuesContainer) {
+      issuesContainer.innerHTML = '';
+      if (issues.length === 0) {
+        issuesContainer.innerHTML = `
+          <div class="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span>✨</span>
+              <span class="font-bold">Код файла полностью чист и синтаксически корректен!</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 font-mono">AST OK</span>
+          </div>
+        `;
+        if (saveFixBtn) saveFixBtn.classList.add('hidden');
+      } else {
+        issues.forEach((iss, idx) => {
+          const card = document.createElement('div');
+          const isErr = iss.severity === 'error';
+          card.className = `p-3 rounded-xl border space-y-1.5 ${isErr ? 'bg-red-950/20 border-red-500/30' : 'bg-amber-950/20 border-amber-500/30'}`;
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="font-bold ${isErr ? 'text-red-400' : 'text-amber-400'} flex items-center gap-1.5">
+                <span>${isErr ? '❌' : '⚠️'}</span>
+                <span>${escapeHtml(iss.title)}</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-black/40 font-mono text-slate-300">Строка ${iss.line || 1}</span>
+            </div>
+            <p class="text-xs text-slate-300">${escapeHtml(iss.message)}</p>
+            <div class="text-[11px] text-slate-400 bg-black/30 p-2 rounded-lg font-mono">💡 Совет: ${escapeHtml(iss.advice)}</div>
+          `;
+          issuesContainer.appendChild(card);
+        });
+
+        // If an auto-fix is provided in analysis
+        if (data.analysis.fix_code && saveFixBtn) {
+          lastVSCodeFixCode = data.analysis.fix_code;
+          saveFixBtn.classList.remove('hidden');
+        }
+      }
+    }
+
+  } catch (err) {
+    if (!silent) alert(`Ошибка анализа файла: ${err.message}`);
+  } finally {
+    if (!silent && btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="search" class="w-3.5 h-3.5"></i><span>Анализ</span>';
+      lucide.createIcons();
+    }
+  }
+}
+
+async function scanVSCodeWorkspace() {
+  const dirInput = document.getElementById('vscode-workspace-input');
+  const workspaceDir = (dirInput ? dirInput.value.trim() : '') || '.';
+  const btn = document.getElementById('btn-scan-workspace');
+  const resultsContainer = document.getElementById('vscode-workspace-results');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Сканирование...</span>';
+    lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/vscode/inspect-workspace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_dir: workspaceDir, max_files: 30 })
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      resultsContainer.innerHTML = `<div class="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-red-300 text-xs">${escapeHtml(data.error)}</div>`;
+      return;
+    }
+
+    resultsContainer.innerHTML = '';
+    if (data.files.length === 0) {
+      resultsContainer.innerHTML = `<div class="p-3 bg-slate-900/60 rounded-xl text-slate-400 text-xs text-center">Python (.py) файлы не найдены в папке.</div>`;
+      return;
+    }
+
+    data.files.forEach(f => {
+      const item = document.createElement('div');
+      const hasIssues = f.issues_count > 0;
+      item.className = `p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition ${hasIssues ? 'bg-slate-900/90 border-amber-500/30 hover:border-amber-400' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`;
+      item.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <span>${hasIssues ? '⚠️' : '✅'}</span>
+          <span class="font-bold text-white font-mono">${escapeHtml(f.relative_path || f.file_name)}</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-[11px] ${hasIssues ? 'text-amber-400 font-bold' : 'text-emerald-400'}">${hasIssues ? `${f.issues_count} замечаний` : 'Чисто'}</span>
+          <button onclick="loadVSCodeFileToInspector('${escapeHtml(f.file_path)}')" class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 text-[10px] font-semibold">Открыть</button>
+        </div>
+      `;
+      resultsContainer.appendChild(item);
+    });
+
+  } catch (err) {
+    resultsContainer.innerHTML = `<div class="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-red-300 text-xs">Ошибка: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Сканировать</span>';
+      lucide.createIcons();
+    }
+  }
+}
+
+function loadVSCodeFileToInspector(filePath) {
+  const input = document.getElementById('vscode-file-input');
+  if (input) input.value = filePath;
+  inspectVSCodeFile(false);
+}
+
+async function saveVSCodeFixToDisk() {
+  if (!lastVSCodeFixCode || !currentVSCodeFilePath) {
+    showToast('Нет готового исправления для сохранения');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/vscode/apply-fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_path: currentVSCodeFilePath, fixed_code: lastVSCodeFixCode })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ Файл успешно сохранен на диске с автофиксом!');
+      inspectVSCodeFile(false);
+    } else {
+      alert(`Не удалось сохранить: ${data.error}`);
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function syncVSCodeToPlayground() {
+  const preview = document.getElementById('vscode-code-preview');
+  const playground = document.getElementById('playground-editor');
+  if (preview && playground) {
+    playground.value = preview.value;
+    switchTab('playground');
+    showToast('Код перенесен в интерактивную песочницу PyForge!');
+  }
+}
+
+// Background auto-watcher for VS Code live inspection
+setInterval(() => {
+  if (currentTab === 'vscode') {
+    const autoWatchCheck = document.getElementById('vscode-auto-watch');
+    if (autoWatchCheck && autoWatchCheck.checked) {
+      inspectVSCodeFile(true);
+    }
+  }
+}, 2500);
+
+
