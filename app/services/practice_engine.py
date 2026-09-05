@@ -15,8 +15,8 @@ from .library_task_generator import LibraryTaskGeneratorService
 
 class PracticeEngineService:
     @classmethod
-    def list_tasks(cls) -> List[Dict[str, Any]]:
-        profile = GamificationService._load_profile()
+    def list_tasks(cls, user_key_or_token: Optional[str] = None) -> List[Dict[str, Any]]:
+        profile = GamificationService._load_profile(user_key_or_token)
         solved_ids = set(profile.get("solved_tasks", []))
 
         results = []
@@ -45,7 +45,7 @@ class PracticeEngineService:
         return None
 
     @classmethod
-    def submit_solution(cls, task_id: str, code: str) -> Dict[str, Any]:
+    def submit_solution(cls, task_id: str, code: str, user_key_or_token: Optional[str] = None) -> Dict[str, Any]:
         task = cls.get_task(task_id)
         if not task:
             raise ValueError("Задание не найдено")
@@ -70,7 +70,7 @@ class PracticeEngineService:
                 [sys.executable, str(tmp_path)],
                 capture_output=True,
                 text=True,
-                timeout=5.0,
+                timeout=10.0,
                 encoding="utf-8",
                 errors="replace"
             )
@@ -93,7 +93,7 @@ class PracticeEngineService:
             all_passed = report.get("all_passed", False)
             award_info = None
             if all_passed:
-                award_info = GamificationService.award_task_completion(task_id, task["reward_stars"])
+                award_info = GamificationService.award_task_completion(task_id, task["reward_stars"], user_key_or_token)
 
             return {
                 "success": all_passed,
@@ -105,7 +105,7 @@ class PracticeEngineService:
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
-                "summary": "Превышен лимит времени выполнения (5 секунд)! Проверьте, нет ли бесконечного цикла.",
+                "summary": "⏱️ Превышен лимит времени выполнения (10 сек)! Проверьте, нет ли в решении бесконечного цикла while / незавершающейся рекурсии или ожидания ввода input().",
                 "test_results": []
             }
         except Exception as e:

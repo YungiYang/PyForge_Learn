@@ -397,6 +397,35 @@ class LiveErrorMentorService:
                         "suggested_fix": None
                     }
 
+            # 6. Бесконечный цикл while True без break
+            elif isinstance(node, ast.While):
+                if isinstance(node.test, ast.Constant) and node.test.value is True:
+                    has_break = any(isinstance(child, ast.Break) for child in ast.walk(node))
+                    if not has_break:
+                        line_no = getattr(node, 'lineno', 1)
+                        return {
+                            "has_errors": True,
+                            "status": "infinite_loop",
+                            "severity": "critical",
+                            "line": line_no,
+                            "message": f"🚫 Обнаружен потенциально бесконечный цикл `while True` на строке {line_no} без оператора `break`.",
+                            "hint": "Добавьте условие выхода `if ...: break` или измените условие цикла `while`, иначе программа зависнет по таймауту.",
+                            "suggested_fix": None
+                        }
+
+            # 7. Использование input() в онлайн среде
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "input":
+                line_no = getattr(node, 'lineno', 1)
+                return {
+                    "has_errors": False,
+                    "status": "input_call",
+                    "severity": "warning",
+                    "line": line_no,
+                    "message": f"💡 Использование `input()` на строке {line_no}.",
+                    "hint": "В автоматических тестах и веб-песочнице функция `input()` не может прочитать ввод с клавиатуры. Передавайте значения напрямую в параметры функции.",
+                    "suggested_fix": None
+                }
+
         return None
 
     @classmethod

@@ -242,6 +242,242 @@ class TestPyForge(unittest.TestCase):
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
+    def test_auth_service(self):
+        from app.services.auth_service import AuthService
+        import time
+
+        test_user = f"tester_{int(time.time())}"
+        # 1. Register new user
+        reg_res = AuthService.register(test_user, "password123", "Тестовый Разработчик")
+        self.assertTrue(reg_res["success"])
+        self.assertIn("token", reg_res)
+        self.assertEqual(reg_res["user"]["username"], test_user)
+
+        # 2. Reject duplicate registration
+        with self.assertRaises(ValueError):
+            AuthService.register(test_user, "password123")
+
+        # 3. Reject short password
+        with self.assertRaises(ValueError):
+            AuthService.register(f"user_short_{int(time.time())}", "12")
+
+        # 4. Login with correct password
+        login_res = AuthService.login(test_user, "password123")
+        self.assertTrue(login_res["success"])
+        self.assertIn("token", login_res)
+
+        # 5. Login with incorrect password
+        with self.assertRaises(ValueError):
+            AuthService.login(test_user, "wrong_pass")
+
+        # 6. Retrieve user by token
+        user = AuthService.get_user_by_token(login_res["token"])
+        self.assertIsNotNone(user)
+        self.assertEqual(user["username"], test_user)
+
+        # 7. Logout
+        logout_ok = AuthService.logout(login_res["token"])
+        self.assertTrue(logout_ok)
+        self.assertIsNone(AuthService.get_user_by_token(login_res["token"]))
+
+    def test_leaderboard_service(self):
+        from app.services.leaderboard_service import LeaderboardService
+        from app.services.auth_service import AuthService
+
+        leaderboard = LeaderboardService.get_leaderboard(current_username="AlexPy")
+        self.assertTrue(leaderboard["success"])
+        self.assertGreaterEqual(leaderboard["total_players"], 3)
+        self.assertGreaterEqual(len(leaderboard["top_3"]), 1)
+        self.assertEqual(leaderboard["rankings"][0]["rank"], 1)
+
+        # Check ranking order (descending by stars)
+        stars = [r["stars"] for r in leaderboard["rankings"]]
+        self.assertEqual(stars, sorted(stars, reverse=True))
+
+        # Check current user rank info
+        self.assertIsNotNone(leaderboard["current_user_rank"])
+        self.assertEqual(leaderboard["current_user_rank"]["username"], "AlexPy")
+
+    def test_forum_service(self):
+        from app.services.forum_service import ForumService
+
+        # 1. Categories
+        cats = ForumService.get_categories()
+        self.assertGreaterEqual(len(cats), 5)
+
+        # 2. List topics
+        topics = ForumService.list_topics(category="web")
+        self.assertGreaterEqual(len(topics), 1)
+
+        # 3. Create new topic
+        new_topic = ForumService.create_topic(
+            title="Тестовый вопрос по FastAPI и Asyncio",
+            category="web",
+            content="Как настроить middleware для проверки токенов?",
+            author_username="AlexPy",
+            tags=["fastapi", "test"]
+        )
+        self.assertIn("topic_", new_topic["id"])
+        self.assertEqual(new_topic["category"], "web")
+
+        # 4. Get topic details (increases views)
+        topic_detail = ForumService.get_topic(new_topic["id"])
+        self.assertIsNotNone(topic_detail)
+        self.assertGreaterEqual(topic_detail["views"], 1)
+
+        # 5. Add comment
+        comment = ForumService.add_comment(
+            topic_id=new_topic["id"],
+            content="Используйте `Depends` или `HTTPBearer`!",
+            author_username="ElenaCode"
+        )
+        self.assertIn("comm_", comment["id"])
+
+        # 6. Upvote topic
+        upvote_res = ForumService.upvote_topic(new_topic["id"], "ElenaCode")
+        self.assertTrue(upvote_res["success"])
+        self.assertTrue(upvote_res["voted"])
+
+    def test_ideas_service(self):
+        from app.services.ideas_service import IdeasService
+
+        # 1. List ideas
+        ideas = IdeasService.list_ideas(status="all", sort_by="popular")
+        self.assertGreaterEqual(len(ideas), 2)
+
+        # 2. Submit new idea
+        new_idea = IdeasService.submit_idea(
+            title="Интеграция с GitHub Gist",
+            description="Возможность экспортировать сниппеты прямо в свой аккаунт GitHub Gist.",
+            category="tools",
+            author_username="AlexPy"
+        )
+        self.assertIn("idea_", new_idea["id"])
+        self.assertEqual(new_idea["status"], "under_review")
+
+        # 3. Vote for idea
+        vote_res = IdeasService.vote_idea(new_idea["id"], "ElenaCode")
+        self.assertTrue(vote_res["success"])
+        self.assertTrue(vote_res["has_voted"])
+
+        # 4. Toggle vote off
+        unvote_res = IdeasService.vote_idea(new_idea["id"], "ElenaCode")
+        self.assertTrue(unvote_res["success"])
+        self.assertFalse(unvote_res["has_voted"])
+
+    def test_auth_and_gamification_integration(self):
+        from app.services.auth_service import AuthService
+        from app.services.gamification import GamificationService
+        from app.services.practice_engine import PracticeEngineService
+        import time
+
+        uname = f"gamer_{int(time.time())}"
+        reg = AuthService.register(uname, "pass123", "Gamer Pro")
+        token = reg["token"]
+
+        # User starts with 0 stars
+        profile = GamificationService.get_full_profile(token)
+        self.assertEqual(profile["stars"], 0)
+
+        # Solve task with user token
+        code = '''def is_palindrome(text: str) -> bool:
+    clean = "".join(ch.lower() for ch in text if ch.isalnum())
+    return clean == clean[::-1]
+'''
+        res = PracticeEngineService.submit_solution("task_palindrome", code, token)
+        self.assertTrue(res["success"])
+        self.assertIsNotNone(res["award_info"])
+        self.assertGreater(res["award_info"]["awarded_stars"], 0)
+
+        # Profile updated
+        updated_profile = GamificationService.get_full_profile(token)
+        self.assertEqual(updated_profile["stars"], res["award_info"]["awarded_stars"])
+
+    def test_api_endpoints_auth_forum_ideas_leaderboard(self):
+        from app.main import (
+            auth_register,
+            auth_login,
+            auth_me,
+            get_leaderboard,
+            get_forum_categories,
+            list_forum_topics,
+            create_forum_topic,
+            add_forum_comment,
+            upvote_forum_topic,
+            list_ideas,
+            create_idea,
+            vote_idea,
+            RegisterRequest,
+            LoginRequest,
+            CreateTopicRequest,
+            AddCommentRequest,
+            UpvoteTopicRequest,
+            CreateIdeaRequest,
+            VoteIdeaRequest
+        )
+        import time
+
+        # 1. Register API
+        u = f"api_user_{int(time.time())}"
+        reg_dto = RegisterRequest(username=u, password="password123", display_name="API User")
+        reg_res = asyncio.run(auth_register(reg_dto))
+        self.assertTrue(reg_res["success"])
+        token = reg_res["token"]
+
+        # 2. Login API
+        login_dto = LoginRequest(username=u, password="password123")
+        login_res = asyncio.run(auth_login(login_dto))
+        self.assertTrue(login_res["success"])
+
+        # 3. Me API
+        me_res = asyncio.run(auth_me(authorization=f"Bearer {token}", token=None))
+        self.assertTrue(me_res["success"])
+        self.assertEqual(me_res["user"]["username"], u)
+
+        # 4. Leaderboard API
+        lb_res = asyncio.run(get_leaderboard(authorization=f"Bearer {token}", token=None))
+        self.assertTrue(lb_res["success"])
+        self.assertIsNotNone(lb_res["current_user_rank"])
+        self.assertEqual(lb_res["current_user_rank"]["username"], u)
+
+        # 5. Forum Categories API
+        cats = asyncio.run(get_forum_categories())
+        self.assertGreater(len(cats), 0)
+
+        # 6. Create Forum Topic API
+        topic_dto = CreateTopicRequest(
+            title="FastAPI Route Testing",
+            category="web",
+            content="Testing route creation and comments.",
+            tags=["fastapi", "routes"]
+        )
+        created_topic = asyncio.run(create_forum_topic(topic_dto, authorization=f"Bearer {token}"))
+        self.assertIn("topic_", created_topic["id"])
+
+        # 7. Add Comment API
+        comm_dto = AddCommentRequest(topic_id=created_topic["id"], content="Отличный вопрос!")
+        created_comm = asyncio.run(add_forum_comment(comm_dto, authorization=f"Bearer {token}"))
+        self.assertIn("comm_", created_comm["id"])
+
+        # 8. Upvote Topic API
+        upv_dto = UpvoteTopicRequest(topic_id=created_topic["id"])
+        upv_res = asyncio.run(upvote_forum_topic(upv_dto, authorization=f"Bearer {token}"))
+        self.assertTrue(upv_res["success"])
+
+        # 9. List Ideas API
+        ideas = asyncio.run(list_ideas(category="all", status="all", sort_by="popular"))
+        self.assertGreater(len(ideas), 0)
+
+        # 10. Create Idea API
+        idea_dto = CreateIdeaRequest(title="Новая фича в конструктор", description="Подробности идеи", category="general")
+        created_idea = asyncio.run(create_idea(idea_dto, authorization=f"Bearer {token}"))
+        self.assertIn("idea_", created_idea["id"])
+
+        # 11. Vote Idea API
+        vote_dto = VoteIdeaRequest(idea_id=created_idea["id"])
+        vote_res = asyncio.run(vote_idea(vote_dto, authorization=f"Bearer {token}"))
+        self.assertTrue(vote_res["success"])
+
 if __name__ == "__main__":
     unittest.main()
 

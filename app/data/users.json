@@ -1,0 +1,226 @@
+{
+  "alexpy": {
+    "id": "user_alex_dev",
+    "username": "AlexPy",
+    "display_name": "Алексей Pythonist",
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=AlexPy",
+    "stars": 480,
+    "total_earned_stars": 480,
+    "active_title_id": "title_architect",
+    "unlocked_titles": [
+      "title_novice",
+      "title_lists",
+      "title_dict",
+      "title_oop",
+      "title_async",
+      "title_bug_hunter",
+      "title_architect"
+    ],
+    "solved_tasks": [
+      "task_palindrome",
+      "task_word_frequency",
+      "task_chunk_list",
+      "task_timing_decorator",
+      "task_validate_email",
+      "task_async_rate_limiter",
+      "task_lru_cache_impl"
+    ],
+    "created_at": "2026-08-15T10:00:00Z"
+  },
+  "elenacode": {
+    "id": "user_elena_code",
+    "username": "ElenaCode",
+    "display_name": "Елена (Async Dev)",
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=ElenaCode",
+    "stars": 320,
+    "total_earned_stars": 320,
+    "active_title_id": "title_async",
+    "unlocked_titles": [
+      "title_novice",
+      "title_lists",
+      "title_dict",
+      "title_oop",
+      "title_async"
+    ],
+    "solved_tasks": [
+      "task_palindrome",
+      "task_word_frequency",
+      "task_timing_decorator",
+      "task_validate_email",
+      "task_async_rate_limiter"
+    ],
+    "created_at": "2026-08-20T14:30:00Z"
+  },
+  "dmitrypro": {
+    "id": "user_dmitry_pro",
+    "username": "DmitryPro",
+    "display_name": "Дмитрий В.",
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=DmitryPro",
+    "stars": 195,
+    "total_earned_stars": 195,
+    "active_title_id": "title_oop",
+    "unlocked_titles": [
+      "title_novice",
+      "title_lists",
+      "title_dict",
+      "title_oop"
+    ],
+    "solved_tasks": [
+      "task_palindrome",
+      "task_word_frequency",
+      "task_chunk_list",
+      "task_timing_decorator"
+    ],
+    "created_at": "2026-08-25T18:00:00Z"
+  },
+  "olgaai": {
+    "id": "user_olga_ai",
+    "username": "OlgaAI",
+    "display_name": "Ольга Нейросети",
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=OlgaAI",
+    "stars": 110,
+    "total_earned_stars": 110,
+    "active_title_id": "title_dict",
+    "unlocked_titles": [
+      "title_novice",
+      "title_lists",
+      "title_dict"
+    ],
+    "solved_tasks": [
+      "task_palindrome",
+      "task_word_frequency",
+      "task_chunk_list"
+    ],
+    "created_at": "2026-08-30T11:20:00Z"
+  },
+  "gamer_1788635610": {
+    "id": "user_1788635610_def5e994",
+    "username": "gamer_1788635610",
+    "display_name": "Gamer Pro",
+    "password_hash": "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=gamer_1788635610",
+    "stars": 15,
+    "total_earned_stars": 15,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [
+      "task_palindrome"
+    ],
+    "created_at": "2026-09-05T19:13:30Z"
+  },
+  "tester_1788635610": {
+    "id": "user_1788635610_19a102fc",
+    "username": "tester_1788635610",
+    "display_name": "Тестовый Разработчик",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=tester_1788635610",
+    "stars": 0,
+    "total_earned_stars": 0,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [],
+    "created_at": "2026-09-05T19:13:30Z"
+  },
+  "api_user_1788635745": {
+    "id": "user_1788635745_67be60e9",
+    "username": "api_user_1788635745",
+    "display_name": "API User",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788635745",
+    "stars": 0,
+    "total_earned_stars": 0,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [],
+    "created_at": "2026-09-05T19:15:45Z"
+  },
+  "gamer_1788635745": {
+    "id": "user_1788635745_c535bbd8",
+    "username": "gamer_1788635745",
+    "display_name": "Gamer Pro",
+    "password_hash": "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=gamer_1788635745",
+    "stars": 15,
+    "total_earned_stars": 15,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [
+      "task_palindrome"
+    ],
+    "created_at": "2026-09-05T19:15:45Z"
+  },
+  "tester_1788635745": {
+    "id": "user_1788635745_3618d8b1",
+    "username": "tester_1788635745",
+    "display_name": "Тестовый Разработчик",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=tester_1788635745",
+    "stars": 0,
+    "total_earned_stars": 0,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [],
+    "created_at": "2026-09-05T19:15:45Z"
+  },
+  "api_user_1788635843": {
+    "id": "user_1788635843_ff668ff3",
+    "username": "api_user_1788635843",
+    "display_name": "API User",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=api_user_1788635843",
+    "stars": 0,
+    "total_earned_stars": 0,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [],
+    "created_at": "2026-09-05T19:17:23Z"
+  },
+  "gamer_1788635843": {
+    "id": "user_1788635843_51e36ba3",
+    "username": "gamer_1788635843",
+    "display_name": "Gamer Pro",
+    "password_hash": "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=gamer_1788635843",
+    "stars": 15,
+    "total_earned_stars": 15,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [
+      "task_palindrome"
+    ],
+    "created_at": "2026-09-05T19:17:23Z"
+  },
+  "tester_1788635844": {
+    "id": "user_1788635844_830fbe68",
+    "username": "tester_1788635844",
+    "display_name": "Тестовый Разработчик",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=tester_1788635844",
+    "stars": 0,
+    "total_earned_stars": 0,
+    "active_title_id": "title_novice",
+    "unlocked_titles": [
+      "title_novice"
+    ],
+    "solved_tasks": [],
+    "created_at": "2026-09-05T19:17:24Z"
+  }
+}

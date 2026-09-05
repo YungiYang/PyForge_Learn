@@ -1,7 +1,7 @@
 {
   "username": "Python Developer",
-  "stars": 410,
-  "total_earned_stars": 660,
+  "stars": 1175,
+  "total_earned_stars": 1425,
   "active_title_id": "title_async_adept",
   "unlocked_titles": [
     "title_novice",
@@ -26,7 +26,28 @@
     "task_dyn_my_custom_lib_1788627221912",
     "task_re_1788627474340_124",
     "task_fastapi_1788627474519_333",
-    "task_dyn_my_custom_lib_1788627474692"
+    "task_dyn_my_custom_lib_1788627474692",
+    "task_re_1788628378645_654",
+    "task_fastapi_1788628378800_475",
+    "task_dyn_my_custom_lib_1788628378958",
+    "task_re_1788628459261_982",
+    "task_fastapi_1788628459444_940",
+    "task_dyn_my_custom_lib_1788628459622",
+    "task_re_1788630995286_280",
+    "task_fastapi_1788630995702_387",
+    "task_dyn_my_custom_lib_1788630996001",
+    "task_re_1788634961702_147",
+    "task_fastapi_1788634961929_974",
+    "task_dyn_my_custom_lib_1788634962101",
+    "task_re_1788635610719_367",
+    "task_fastapi_1788635611084_514",
+    "task_dyn_my_custom_lib_1788635611299",
+    "task_re_1788635745998_490",
+    "task_fastapi_1788635746321_536",
+    "task_dyn_my_custom_lib_1788635746618",
+    "task_re_1788635844197_299",
+    "task_fastapi_1788635844487_926",
+    "task_dyn_my_custom_lib_1788635844732"
   ],
   "streak_days": 1
 }

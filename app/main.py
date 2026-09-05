@@ -2,7 +2,7 @@
 Главный модуль FastAPI приложения PyForge — Интерактивный комбайн для разработчиков Python.
 """
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,6 +24,10 @@ from .services.practice_engine import PracticeEngineService
 from .services.live_error_mentor import LiveErrorMentorService
 from .services.library_task_generator import LibraryTaskGeneratorService
 from .services.vscode_bridge import VSCodeBridgeService
+from .services.auth_service import AuthService
+from .services.leaderboard_service import LeaderboardService
+from .services.forum_service import ForumService
+from .services.ideas_service import IdeasService
 
 app = FastAPI(
     title="PyForge: Ultimate Python App Studio & Knowledge Hub",
@@ -38,6 +42,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def extract_token(authorization: Optional[str] = None, token_param: Optional[str] = None) -> Optional[str]:
+    if authorization:
+        clean = authorization.strip()
+        if clean.lower().startswith("bearer "):
+            return clean[7:].strip()
+        return clean
+    return token_param
 
 # Pydantic модели запросов
 class RunCodeRequest(BaseModel):
@@ -86,15 +98,178 @@ class ApplyFixRequest(BaseModel):
     file_path: str
     fixed_code: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    display_name: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LogoutRequest(BaseModel):
+    token: Optional[str] = None
+
+class CreateTopicRequest(BaseModel):
+    title: str
+    category: str
+    content: str
+    tags: Optional[List[str]] = None
+
+class AddCommentRequest(BaseModel):
+    topic_id: str
+    content: str
+
+class UpvoteTopicRequest(BaseModel):
+    topic_id: str
+
+class CreateIdeaRequest(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = "general"
+
+class VoteIdeaRequest(BaseModel):
+    idea_id: str
+
+# --- AUTH & USER PROFILE ---
+
+@app.post("/api/auth/register")
+async def auth_register(req: RegisterRequest):
+    try:
+        return AuthService.register(req.username, req.password, req.display_name)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/auth/login")
+async def auth_login(req: LoginRequest):
+    try:
+        return AuthService.login(req.username, req.password)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/auth/me")
+async def auth_me(authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    user = AuthService.get_user_by_token(t)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    return {"success": True, "user": AuthService.sanitize_user(user)}
+
+@app.post("/api/auth/logout")
+async def auth_logout(req: Optional[LogoutRequest] = None, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization, req.token if req else None)
+    if t:
+        AuthService.logout(t)
+    return {"success": True}
+
+# --- LEADERBOARD ---
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    user = AuthService.get_user_by_token(t)
+    current_username = user.get("username") if user else None
+    return LeaderboardService.get_leaderboard(current_username=current_username)
+
+# --- FORUM ---
+
+@app.get("/api/forum/categories")
+async def get_forum_categories():
+    return ForumService.get_categories()
+
+@app.get("/api/forum/topics")
+async def list_forum_topics(category: Optional[str] = None, search: Optional[str] = None):
+    return ForumService.list_topics(category=category, search=search)
+
+@app.get("/api/forum/topics/{topic_id}")
+async def get_forum_topic_detail(topic_id: str):
+    topic = ForumService.get_topic(topic_id)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Тема форума не найдена")
+    return topic
+
+@app.post("/api/forum/topics/create")
+async def create_forum_topic(req: CreateTopicRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    user = AuthService.get_user_by_token(t)
+    username = user["username"] if user else "Аноним"
+    try:
+        return ForumService.create_topic(
+            title=req.title,
+            category=req.category,
+            content=req.content,
+            author_username=username,
+            tags=req.tags
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/forum/comments/create")
+async def add_forum_comment(req: AddCommentRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    user = AuthService.get_user_by_token(t)
+    username = user["username"] if user else "Аноним"
+    try:
+        return ForumService.add_comment(
+            topic_id=req.topic_id,
+            content=req.content,
+            author_username=username
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/forum/upvote")
+async def upvote_forum_topic(req: UpvoteTopicRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    user = AuthService.get_user_by_token(t)
+    username = user["username"] if user else "guest_user"
+    try:
+        return ForumService.upvote_topic(req.topic_id, username)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# --- CREATOR IDEAS HUB ---
+
+@app.get("/api/ideas/list")
+async def list_ideas(category: Optional[str] = None, status: Optional[str] = None, sort_by: Optional[str] = "popular"):
+    return IdeasService.list_ideas(category=category, status=status, sort_by=sort_by or "popular")
+
+@app.post("/api/ideas/create")
+async def create_idea(req: CreateIdeaRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    user = AuthService.get_user_by_token(t)
+    username = user["username"] if user else "Аноним"
+    try:
+        return IdeasService.submit_idea(
+            title=req.title,
+            description=req.description,
+            category=req.category or "general",
+            author_username=username
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/ideas/vote")
+async def vote_idea(req: VoteIdeaRequest, authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    user = AuthService.get_user_by_token(t)
+    username = user["username"] if user else "guest_user"
+    try:
+        return IdeasService.vote_idea(req.idea_id, username)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 # --- ПРАКТИКА И ГЕЙМИФИКАЦИЯ ЭНДПОИНТЫ ---
 
 @app.get("/api/practice/profile")
-async def get_user_profile():
-    return GamificationService.get_full_profile()
+async def get_user_profile(authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    return GamificationService.get_full_profile(t)
 
 @app.get("/api/practice/tasks")
-async def get_practice_tasks():
-    return PracticeEngineService.list_tasks()
+async def get_practice_tasks(authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
+    return PracticeEngineService.list_tasks(t)
 
 @app.get("/api/practice/libraries-list")
 async def get_practice_libraries_list():
@@ -106,9 +281,10 @@ async def generate_random_by_library(req: RandomLibraryTaskRequest):
     return {"success": True, "task": task}
 
 @app.post("/api/practice/submit")
-async def submit_practice_solution(req: SubmitSolutionRequest):
+async def submit_practice_solution(req: SubmitSolutionRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
     try:
-        return PracticeEngineService.submit_solution(req.task_id, req.code)
+        return PracticeEngineService.submit_solution(req.task_id, req.code, t)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -117,16 +293,18 @@ async def generate_ai_practice_task(req: GenerateTaskRequest):
     return PracticeEngineService.generate_ai_task(req.topic or "алгоритмы", req.difficulty or "Middle")
 
 @app.post("/api/practice/buy-title")
-async def buy_title_endpoint(req: BuyTitleRequest):
+async def buy_title_endpoint(req: BuyTitleRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
     try:
-        return GamificationService.buy_title(req.title_id)
+        return GamificationService.buy_title(req.title_id, t)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/practice/set-active-title")
-async def set_active_title_endpoint(req: SetActiveTitleRequest):
+async def set_active_title_endpoint(req: SetActiveTitleRequest, authorization: Optional[str] = Header(None), token: Optional[str] = Query(None)):
+    t = extract_token(authorization, token)
     try:
-        return GamificationService.set_active_title(req.title_id)
+        return GamificationService.set_active_title(req.title_id, t)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -330,7 +508,35 @@ async def search_all(q: str = Query(..., min_length=2)):
 
     return results
 
-# Подключение статических файлов (SPA Frontend)
-static_dir = Path(__file__).resolve().parent / "static"
+# Подключение статических файлов и главной страницы
+from fastapi.responses import FileResponse
+
+static_dir = None
+for candidate in [
+    Path(__file__).resolve().parent / "static",
+    Path("app/static").resolve(),
+    Path("static").resolve()
+]:
+    if candidate.exists() and (candidate / "index.html").exists():
+        static_dir = candidate
+        break
+
+if not static_dir:
+    static_dir = Path(__file__).resolve().parent / "static"
+
+@app.get("/")
+async def serve_index():
+    index_path = static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"status": "ok", "message": "PyForge Studio is active. Static files directory: " + str(static_dir)}
+
+@app.get("/manifest.json")
+async def serve_manifest():
+    manifest_path = static_dir / "manifest.json"
+    if manifest_path.exists():
+        return FileResponse(str(manifest_path), media_type="application/manifest+json")
+    return {}
+
 if static_dir.exists():
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")

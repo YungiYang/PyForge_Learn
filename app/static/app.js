@@ -6,6 +6,26 @@ let currentSelectedFile = null;
 let currentTemplatesList = [];
 let allSnippets = [];
 let allFrameworks = [];
+let currentUser = null;
+let currentForumCategory = 'all';
+let currentForumSearch = '';
+let currentTopicDetail = null;
+let currentIdeasStatus = 'all';
+let allLeaderboardData = [];
+
+// Auth Helpers
+function getAuthToken() {
+  return localStorage.getItem('pyforge_token') || null;
+}
+
+function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 // Playground Code Presets
 const PLAYGROUND_PRESETS = {
@@ -87,8 +107,9 @@ benchmark()
 };
 
 // Initialization on DOM Load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
+  await checkAuthState();
   loadUserProfile();
   loadPracticeTasks();
   loadAiSuggestions();
@@ -115,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       closeSearchModal();
       closeDirectoryGenerateModal();
+      closeAuthModal();
+      closeNewTopicModal();
+      closeTopicDetailModal();
+      closeNewIdeaModal();
     }
   });
 });
@@ -157,9 +182,16 @@ function switchTab(tabId) {
   const activeSec = document.getElementById(`tab-${tabId}`);
   if (activeSec) {
     activeSec.classList.remove('hidden');
-    if (tabId === 'vscode') {
-      inspectVSCodeFile(false);
-    }
+  }
+
+  // Lazy tab data loading
+  if (tabId === 'leaderboard') {
+    loadLeaderboard();
+  } else if (tabId === 'forum') {
+    loadForumCategories();
+    loadForumTopics();
+  } else if (tabId === 'ideas') {
+    loadIdeas();
   }
 
   // Re-run Prism and Lucide
@@ -987,7 +1019,9 @@ let lastMentorSuggestedFix = null;
 
 async function loadUserProfile() {
   try {
-    const res = await fetch('/api/practice/profile');
+    const res = await fetch('/api/practice/profile', {
+      headers: getAuthHeaders()
+    });
     userProfile = await res.json();
     
     // Update Header Widget
@@ -995,9 +1029,14 @@ async function loadUserProfile() {
     const titleElem = document.getElementById('header-active-title');
     const shopStarsElem = document.getElementById('shop-stars-balance');
     
-    if (starsElem) starsElem.innerText = userProfile.stars;
-    if (titleElem) titleElem.innerText = userProfile.active_title ? userProfile.active_title.name : 'Начинающий';
-    if (shopStarsElem) shopStarsElem.innerText = userProfile.stars;
+    if (starsElem) starsElem.innerText = userProfile.stars || 0;
+    if (titleElem) titleElem.innerText = userProfile.active_title ? userProfile.active_title.name : '🐍 Начинающий Змеелов';
+    if (shopStarsElem) shopStarsElem.innerText = userProfile.stars || 0;
+
+    if (currentUser) {
+      currentUser.stars = userProfile.stars;
+      currentUser.active_title_id = userProfile.active_title?.id;
+    }
   } catch (err) {
     console.error('Ошибка загрузки профиля:', err);
   }
@@ -1005,7 +1044,9 @@ async function loadUserProfile() {
 
 async function loadPracticeTasks() {
   try {
-    const res = await fetch('/api/practice/tasks');
+    const res = await fetch('/api/practice/tasks', {
+      headers: getAuthHeaders()
+    });
     allPracticeTasks = await res.json();
     renderPracticeTasks(allPracticeTasks);
 
@@ -1224,7 +1265,7 @@ async function submitPracticeSolution() {
   try {
     const res = await fetch('/api/practice/submit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         task_id: currentPracticeTask.id,
         code: code
@@ -1241,6 +1282,7 @@ async function submitPracticeSolution() {
         showToast(`🎉 Потрясающе! Вы заработали +${report.award_info.awarded_stars} ⭐!`);
         await loadUserProfile();
         await loadPracticeTasks();
+        if (currentTab === 'leaderboard') loadLeaderboard();
       } else {
         showToast('Задание успешно решено повторно! 👍');
       }
@@ -1326,7 +1368,7 @@ async function buyTitle(titleId) {
   try {
     const res = await fetch('/api/practice/buy-title', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ title_id: titleId })
     });
     const data = await res.json();
@@ -1334,6 +1376,7 @@ async function buyTitle(titleId) {
       showToast(data.message);
       await loadUserProfile();
       openTitleShopModal();
+      if (currentTab === 'leaderboard') loadLeaderboard();
     } else {
       alert(data.detail || 'Не удалось купить титул');
     }
@@ -1346,7 +1389,19 @@ async function equipTitle(titleId) {
   try {
     const res = await fetch('/api/practice/set-active-title', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ title_id: titleId })
+    });
+    if (res.ok) {
+      showToast('Титул успешно экипирован! 👑');
+      await loadUserProfile();
+      openTitleShopModal();
+      if (currentTab === 'leaderboard') loadLeaderboard();
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
       body: JSON.stringify({ title_id: titleId })
     });
     if (res.ok) {
@@ -1467,6 +1522,14 @@ async function inspectVSCodeFile(silent = false) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file_path: filePath })
     });
+
+    if (!res.ok) {
+      if (!silent) {
+        showToast('Файл не найден на сервере');
+      }
+      return;
+    }
+
     const data = await res.json();
 
     const infoBar = document.getElementById('vscode-file-info-bar');
@@ -1541,7 +1604,9 @@ async function inspectVSCodeFile(silent = false) {
     }
 
   } catch (err) {
-    if (!silent) alert(`Ошибка анализа файла: ${err.message}`);
+    if (!silent) {
+      showToast(`Проверка файла: ${err.message}`);
+    }
   } finally {
     if (!silent && btn) {
       btn.disabled = false;
@@ -1569,6 +1634,12 @@ async function scanVSCodeWorkspace() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workspace_dir: workspaceDir, max_files: 30 })
     });
+
+    if (!res.ok) {
+      resultsContainer.innerHTML = `<div class="p-3 bg-slate-900/60 rounded-xl text-slate-400 text-xs text-center">Сканирование локального диска доступно при локальном запуске приложения.</div>`;
+      return;
+    }
+
     const data = await res.json();
 
     if (!data.success) {
@@ -1659,5 +1730,885 @@ setInterval(() => {
     }
   }
 }, 2500);
+
+// ==========================================
+// --- AUTHENTICATION & USER PROFILE ---
+// ==========================================
+
+async function checkAuthState() {
+  const token = getAuthToken();
+  if (!token) {
+    updateHeaderUserWidget(null);
+    return;
+  }
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = data.user;
+      updateHeaderUserWidget(currentUser);
+    } else {
+      localStorage.removeItem('pyforge_token');
+      currentUser = null;
+      updateHeaderUserWidget(null);
+    }
+  } catch (err) {
+    console.error('Ошибка проверки токена:', err);
+  }
+}
+
+function updateHeaderUserWidget(user) {
+  const container = document.getElementById('user-header-auth-widget');
+  if (!container) return;
+
+  if (user && user.username) {
+    const avatar = user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`;
+    const displayName = user.display_name || user.username;
+    container.innerHTML = `
+      <div class="flex items-center space-x-2 pl-1">
+        <div class="flex items-center space-x-2 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-xs shadow-sm">
+          <img src="${avatar}" class="w-6 h-6 rounded-lg border border-slate-600 bg-slate-900" alt="${escapeHtml(displayName)}">
+          <span class="font-bold text-white max-w-[110px] truncate">${escapeHtml(displayName)}</span>
+        </div>
+        <button onclick="logoutUser()" title="Выйти из аккаунта" class="p-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    `;
+  } else {
+    container.innerHTML = `
+      <button onclick="openAuthModal('login')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md shadow-sky-600/20 transition">
+        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+        <span>Войти / Регистрация</span>
+      </button>
+    `;
+  }
+  lucide.createIcons();
+}
+
+function openAuthModal(tab = 'login') {
+  const modal = document.getElementById('auth-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    switchAuthTab(tab);
+    clearAuthError();
+  }
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchAuthTab(tab) {
+  const tabLogin = document.getElementById('auth-tab-login');
+  const tabReg = document.getElementById('auth-tab-register');
+  const formLogin = document.getElementById('auth-login-form');
+  const formReg = document.getElementById('auth-register-form');
+  clearAuthError();
+
+  if (tab === 'login') {
+    tabLogin.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow';
+    tabReg.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+    formLogin.classList.remove('hidden');
+    formReg.classList.add('hidden');
+  } else {
+    tabReg.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition bg-indigo-600 text-white shadow';
+    tabLogin.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+    formReg.classList.remove('hidden');
+    formLogin.classList.add('hidden');
+  }
+}
+
+function showAuthError(msg) {
+  const box = document.getElementById('auth-error-box');
+  const txt = document.getElementById('auth-error-msg');
+  if (box && txt) {
+    txt.innerText = msg;
+    box.classList.remove('hidden');
+  }
+}
+
+function clearAuthError() {
+  const box = document.getElementById('auth-error-box');
+  if (box) box.classList.add('hidden');
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById('auth-login-username').value.trim();
+  const password = document.getElementById('auth-login-password').value.trim();
+  const btn = document.getElementById('auth-login-btn');
+
+  if (!username || !password) {
+    showAuthError('Заполните все поля');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Вход...</span>';
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showAuthError(data.detail || 'Неверный логин или пароль');
+      return;
+    }
+
+    localStorage.setItem('pyforge_token', data.token);
+    currentUser = data.user;
+    closeAuthModal();
+    showToast(`С возвращением, ${currentUser.display_name || currentUser.username}! 👋`);
+    await loadUserProfile();
+    await loadPracticeTasks();
+    if (currentTab === 'leaderboard') loadLeaderboard();
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>Войти</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
+    lucide.createIcons();
+  }
+}
+
+async function handleRegisterSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById('auth-reg-username').value.trim();
+  const displayName = document.getElementById('auth-reg-displayname').value.trim();
+  const password = document.getElementById('auth-reg-password').value.trim();
+  const btn = document.getElementById('auth-reg-btn');
+
+  if (!username || !password) {
+    showAuthError('Заполните имя пользователя и пароль');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Регистрация...</span>';
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, display_name: displayName || username })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showAuthError(data.detail || 'Ошибка регистрации');
+      return;
+    }
+
+    localStorage.setItem('pyforge_token', data.token);
+    currentUser = data.user;
+    closeAuthModal();
+    showToast(`Добро пожаловать в PyForge, ${currentUser.display_name || currentUser.username}! 🚀`);
+    await loadUserProfile();
+    await loadPracticeTasks();
+    if (currentTab === 'leaderboard') loadLeaderboard();
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>Создать аккаунт</span><i data-lucide="sparkles" class="w-4 h-4"></i>';
+    lucide.createIcons();
+  }
+}
+
+async function logoutUser() {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ token })
+      });
+    } catch (e) {}
+  }
+  localStorage.removeItem('pyforge_token');
+  currentUser = null;
+  showToast('Вы успешно вышли из аккаунта');
+  await loadUserProfile();
+  await loadPracticeTasks();
+  if (currentTab === 'leaderboard') loadLeaderboard();
+}
+
+// ==========================================
+// --- LEADERBOARD ---
+// ==========================================
+
+async function loadLeaderboard() {
+  try {
+    const res = await fetch('/api/leaderboard', {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    allLeaderboardData = data.rankings || [];
+    renderLeaderboard(data);
+  } catch (err) {
+    console.error('Ошибка загрузки таблицы лидеров:', err);
+  }
+}
+
+function renderLeaderboard(data) {
+  // Total players
+  const totalElem = document.getElementById('leaderboard-total-count');
+  if (totalElem) totalElem.innerText = data.total_players || 0;
+
+  // User Card
+  const userCard = document.getElementById('leaderboard-user-card');
+  if (userCard) {
+    if (data.current_user_rank) {
+      const u = data.current_user_rank;
+      userCard.innerHTML = `
+        <div class="flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center font-extrabold text-lg text-amber-400 shadow-inner">
+            #${u.rank}
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-white">${escapeHtml(u.display_name)}</h3>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">${escapeHtml(u.title_name)}</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Ваш глобальный ранг среди всех участников сообщества</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-6 sm:border-l sm:border-slate-800 sm:pl-6">
+          <div class="text-center">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Решено задач</div>
+            <div class="text-base font-extrabold text-white">${u.solved_tasks_count}</div>
+          </div>
+          <div class="text-center">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Баланс ⭐</div>
+            <div class="text-base font-extrabold text-amber-400 flex items-center justify-center gap-1">
+              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i> ${u.stars}
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      userCard.innerHTML = `
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">
+            <i data-lucide="user" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-white">Вы еще не вошли в аккаунт</h3>
+            <p class="text-[11px] text-slate-400">Войдите или зарегистрируйтесь, чтобы занять свое место в Таблице Лидеров!</p>
+          </div>
+        </div>
+        <button onclick="openAuthModal('login')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 text-white font-bold text-xs shadow-md">
+          Войти в профиль
+        </button>
+      `;
+    }
+  }
+
+  // Top 3 Podium
+  const podiumContainer = document.getElementById('leaderboard-podium');
+  if (podiumContainer) {
+    podiumContainer.innerHTML = '';
+    const top3 = data.top_3 || [];
+    const podiumRanks = [
+      { rank: 1, medal: '🥇', border: 'border-amber-400/50', glow: 'shadow-amber-500/20 bg-amber-950/20', text: 'text-amber-300' },
+      { rank: 2, medal: '🥈', border: 'border-slate-400/50', glow: 'shadow-slate-400/10 bg-slate-900/60', text: 'text-slate-200' },
+      { rank: 3, medal: '🥉', border: 'border-orange-500/50', glow: 'shadow-orange-500/10 bg-orange-950/20', text: 'text-orange-300' }
+    ];
+
+    podiumRanks.forEach(pr => {
+      const player = top3.find(p => p.rank === pr.rank);
+      const card = document.createElement('div');
+      card.className = `glass-panel rounded-2xl p-5 border ${pr.border} ${pr.glow} flex flex-col items-center text-center space-y-3 relative overflow-hidden transition hover:scale-[1.02]`;
+      if (player) {
+        card.innerHTML = `
+          <div class="absolute top-3 left-3 text-2xl">${pr.medal}</div>
+          <div class="relative mt-2">
+            <img src="${player.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.username}`}" class="w-16 h-16 rounded-2xl border-2 ${pr.border} bg-slate-950 shadow-lg" alt="${escapeHtml(player.display_name)}">
+          </div>
+          <div class="space-y-1">
+            <h4 class="font-bold text-sm text-white flex items-center justify-center gap-1.5">
+              ${escapeHtml(player.display_name)}
+              ${player.is_current_user ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">Вы</span>' : ''}
+            </h4>
+            <div class="text-[11px] font-semibold ${pr.text}">${escapeHtml(player.title_name)}</div>
+          </div>
+          <div class="w-full pt-3 border-t border-slate-800/80 flex items-center justify-around text-xs">
+            <div>
+              <span class="text-[10px] text-slate-500 block">Задачи</span>
+              <span class="font-bold text-slate-200">${player.solved_tasks_count}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block">Очки</span>
+              <span class="font-bold text-amber-400 flex items-center justify-center gap-0.5">
+                <i data-lucide="star" class="w-3 h-3 fill-amber-400"></i> ${player.stars}
+              </span>
+            </div>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="text-2xl">${pr.medal}</div>
+          <div class="w-16 h-16 rounded-2xl border border-dashed border-slate-700 flex items-center justify-center text-slate-600">?</div>
+          <p class="text-xs text-slate-500">Место свободно</p>
+        `;
+      }
+      podiumContainer.appendChild(card);
+    });
+  }
+
+  // Full Table
+  renderLeaderboardRows(data.rankings || []);
+  lucide.createIcons();
+}
+
+function renderLeaderboardRows(rankings) {
+  const tbody = document.getElementById('leaderboard-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (rankings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-500">Пользователи не найдены</td></tr>`;
+    return;
+  }
+
+  rankings.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.className = `transition hover:bg-slate-850/60 ${p.is_current_user ? 'bg-sky-950/30 border-l-2 border-sky-500 font-medium' : ''}`;
+
+    let medalEmoji = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`;
+
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-bold text-center text-xs text-slate-400">${medalEmoji}</td>
+      <td class="py-3 px-4">
+        <div class="flex items-center space-x-3">
+          <img src="${p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username}`}" class="w-8 h-8 rounded-xl border border-slate-700 bg-slate-900" alt="">
+          <div>
+            <div class="font-bold text-white text-xs flex items-center gap-1.5">
+              ${escapeHtml(p.display_name)}
+              ${p.is_current_user ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold border border-sky-500/30">ВЫ</span>' : ''}
+            </div>
+            <div class="text-[10px] text-slate-500 font-mono">@${escapeHtml(p.username)}</div>
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <span class="text-xs font-semibold text-slate-300">${escapeHtml(p.title_name)}</span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <span class="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 font-mono text-[11px] border border-slate-800">${p.solved_tasks_count}</span>
+      </td>
+      <td class="py-3 px-4 text-right font-bold text-amber-400 font-mono text-xs">
+        <span class="flex items-center justify-end gap-1">
+          <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400"></i> ${p.stars} ⭐
+        </span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  lucide.createIcons();
+}
+
+function filterLeaderboardTable() {
+  const query = (document.getElementById('leaderboard-search')?.value || '').toLowerCase().trim();
+  if (!query) {
+    renderLeaderboardRows(allLeaderboardData);
+    return;
+  }
+  const filtered = allLeaderboardData.filter(p =>
+    (p.display_name && p.display_name.toLowerCase().includes(query)) ||
+    (p.username && p.username.toLowerCase().includes(query)) ||
+    (p.title_name && p.title_name.toLowerCase().includes(query))
+  );
+  renderLeaderboardRows(filtered);
+}
+
+// ==========================================
+// --- COMMUNITY FORUM ---
+// ==========================================
+
+let allForumCategories = [];
+let allForumTopics = [];
+
+async function loadForumCategories() {
+  try {
+    const res = await fetch('/api/forum/categories');
+    allForumCategories = await res.json();
+    renderForumCategoryPills(allForumCategories);
+  } catch (err) {
+    console.error('Ошибка загрузки категорий форума:', err);
+  }
+}
+
+function renderForumCategoryPills(categories) {
+  const bar = document.getElementById('forum-categories-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    const isActive = currentForumCategory === cat.id;
+    btn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${isActive ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'}`;
+    btn.onclick = () => selectForumCategory(cat.id);
+    btn.innerHTML = `<i data-lucide="${cat.icon || 'folder'}" class="w-3.5 h-3.5"></i> <span>${cat.name}</span>`;
+    bar.appendChild(btn);
+  });
+  lucide.createIcons();
+}
+
+function selectForumCategory(catId) {
+  currentForumCategory = catId;
+  renderForumCategoryPills(allForumCategories);
+  loadForumTopics();
+}
+
+async function loadForumTopics() {
+  const container = document.getElementById('forum-topics-container');
+  if (container) {
+    container.innerHTML = '<p class="text-slate-500 text-center py-6">Загрузка тем обсуждения...</p>';
+  }
+  try {
+    let url = `/api/forum/topics?category=${currentForumCategory}`;
+    if (currentForumSearch) {
+      url += `&search=${encodeURIComponent(currentForumSearch)}`;
+    }
+    const res = await fetch(url);
+    allForumTopics = await res.json();
+    renderForumTopics(allForumTopics);
+  } catch (err) {
+    if (container) container.innerHTML = `<p class="text-rose-400 text-center py-6">Ошибка: ${err.message}</p>`;
+  }
+}
+
+function renderForumTopics(topics) {
+  const container = document.getElementById('forum-topics-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (topics.length === 0) {
+    container.innerHTML = `
+      <div class="glass-panel rounded-2xl p-8 border border-slate-800 text-center space-y-3">
+        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto">
+          <i data-lucide="messages-square" class="w-6 h-6"></i>
+        </div>
+        <h4 class="text-sm font-bold text-white">Темы не найдены</h4>
+        <p class="text-xs text-slate-400">Будьте первым, кто создаст тему в этой категории!</p>
+        <button onclick="openNewTopicModal()" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs">
+          + Создать тему
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  topics.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'glass-panel rounded-2xl p-5 border border-slate-800/80 hover:border-sky-500/50 transition cursor-pointer space-y-3 group';
+    card.onclick = (e) => {
+      if (e.target.closest('.no-modal-open')) return;
+      openTopicDetail(t.id);
+    };
+
+    const tagsHtml = (t.tags || []).map(tag => `<span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-mono">#${escapeHtml(tag)}</span>`).join('');
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-1 flex-1">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase tracking-wider">${escapeHtml(t.category)}</span>
+            <span class="text-[11px] text-slate-500">${t.created_at ? t.created_at.split('T')[0] : ''}</span>
+          </div>
+          <h3 class="font-bold text-sm text-white group-hover:text-sky-300 transition leading-snug">${escapeHtml(t.title)}</h3>
+          <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed font-sans">${escapeHtml(t.preview)}</p>
+        </div>
+        <div class="flex items-center space-x-3 flex-shrink-0 pt-1">
+          <div class="flex items-center space-x-1 text-slate-400 text-xs">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span>${t.views || 0}</span>
+          </div>
+          <div class="flex items-center space-x-1 text-sky-400 text-xs font-semibold">
+            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+            <span>${t.comments_count || 0}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-850">
+        <div class="flex items-center space-x-2">
+          <img src="${t.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${t.author_username}`}" class="w-5 h-5 rounded-md border border-slate-700 bg-slate-900" alt="">
+          <span class="text-xs font-semibold text-slate-300">${escapeHtml(t.author_display_name || t.author_username)}</span>
+          <span class="text-[10px] text-amber-400 font-medium">${escapeHtml(t.author_title || '🐍 Pythonist')}</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          ${tagsHtml}
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  lucide.createIcons();
+}
+
+function filterForumTopics() {
+  currentForumSearch = (document.getElementById('forum-search-input')?.value || '').trim();
+  loadForumTopics();
+}
+
+function openNewTopicModal() {
+  const token = getAuthToken();
+  if (!token) {
+    showToast('Пожалуйста, авторизуйтесь для создания темы на форуме');
+    openAuthModal('login');
+    return;
+  }
+  document.getElementById('forum-topic-modal').classList.remove('hidden');
+}
+
+function closeNewTopicModal() {
+  document.getElementById('forum-topic-modal').classList.add('hidden');
+}
+
+async function handleCreateTopicSubmit(event) {
+  event.preventDefault();
+  const title = document.getElementById('new-topic-title').value.trim();
+  const category = document.getElementById('new-topic-category').value;
+  const tagsStr = document.getElementById('new-topic-tags').value.trim();
+  const content = document.getElementById('new-topic-content').value.trim();
+  const btn = document.getElementById('btn-submit-topic');
+
+  const tags = tagsStr ? tagsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  btn.disabled = true;
+  btn.innerHTML = 'Публикация...';
+
+  try {
+    const res = await fetch('/api/forum/topics/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ title, category, tags, content })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Не удалось опубликовать');
+    }
+    const topic = await res.json();
+    closeNewTopicModal();
+    showToast('Тема успешно создана на форуме! 🎉');
+    document.getElementById('new-topic-title').value = '';
+    document.getElementById('new-topic-content').value = '';
+    document.getElementById('new-topic-tags').value = '';
+    loadForumTopics();
+    openTopicDetail(topic.id);
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Опубликовать тему';
+  }
+}
+
+async function openTopicDetail(topicId) {
+  try {
+    const res = await fetch(`/api/forum/topics/${topicId}`);
+    if (!res.ok) throw new Error('Тема не найдена');
+    currentTopicDetail = await res.json();
+    renderTopicDetailModal(currentTopicDetail);
+    document.getElementById('forum-detail-modal').classList.remove('hidden');
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function renderTopicDetailModal(topic) {
+  document.getElementById('topic-detail-title').innerText = topic.title;
+  document.getElementById('topic-detail-category-badge').innerText = topic.category.toUpperCase();
+  document.getElementById('topic-detail-date').innerText = topic.created_at ? topic.created_at.replace('T', ' ').slice(0, 16) : '';
+  document.getElementById('topic-detail-author-avatar').src = topic.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${topic.author_username}`;
+  document.getElementById('topic-detail-author-name').innerText = topic.author_display_name || topic.author_username;
+  document.getElementById('topic-detail-author-title').innerText = topic.author_title || '🐍 Pythonist';
+  document.getElementById('topic-detail-content').innerText = topic.content;
+  document.getElementById('topic-detail-upvotes-count').innerText = topic.upvotes || 0;
+  document.getElementById('topic-detail-comments-count').innerText = (topic.comments || []).length;
+
+  const tagsContainer = document.getElementById('topic-detail-tags');
+  tagsContainer.innerHTML = (topic.tags || []).map(t => `<span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-mono">#${escapeHtml(t)}</span>`).join('');
+
+  // Render comments
+  renderTopicComments(topic.comments || []);
+  lucide.createIcons();
+}
+
+function renderTopicComments(comments) {
+  const container = document.getElementById('topic-comments-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (comments.length === 0) {
+    container.innerHTML = '<p class="text-slate-500 text-xs text-center py-4 bg-slate-950/40 rounded-xl border border-slate-850">Пока нет ответов. Напишите первый комментарий!</p>';
+    return;
+  }
+
+  comments.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <img src="${c.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${c.author_username}`}" class="w-6 h-6 rounded-md border border-slate-700 bg-slate-900">
+          <span class="font-bold text-white text-xs">${escapeHtml(c.author_display_name || c.author_username)}</span>
+          <span class="text-[10px] text-amber-400">${escapeHtml(c.author_title || '🐍 Pythonist')}</span>
+        </div>
+        <span class="text-[10px] text-slate-500 font-mono">${c.created_at ? c.created_at.slice(0, 16).replace('T', ' ') : ''}</span>
+      </div>
+      <div class="text-xs text-slate-300 leading-relaxed font-sans pl-8 whitespace-pre-wrap">${escapeHtml(c.content)}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function closeTopicDetailModal() {
+  document.getElementById('forum-detail-modal').classList.add('hidden');
+}
+
+async function upvoteCurrentTopic() {
+  if (!currentTopicDetail) return;
+  try {
+    const res = await fetch('/api/forum/upvote', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ topic_id: currentTopicDetail.id })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      document.getElementById('topic-detail-upvotes-count').innerText = data.upvotes;
+      showToast(data.voted ? 'Голос учтен! 👍' : 'Голос отозван');
+      loadForumTopics();
+    }
+  } catch (e) {
+    showToast('Ошибка при голосовании');
+  }
+}
+
+async function handleAddCommentSubmit(event) {
+  event.preventDefault();
+  const token = getAuthToken();
+  if (!token) {
+    showToast('Пожалуйста, авторизуйтесь для добавления комментария');
+    openAuthModal('login');
+    return;
+  }
+  if (!currentTopicDetail) return;
+
+  const contentElem = document.getElementById('new-comment-content');
+  const content = contentElem.value.trim();
+  const btn = document.getElementById('btn-submit-comment');
+
+  if (!content) return;
+
+  btn.disabled = true;
+  btn.innerHTML = 'Отправка...';
+
+  try {
+    const res = await fetch('/api/forum/comments/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ topic_id: currentTopicDetail.id, content })
+    });
+    if (!res.ok) throw new Error('Ошибка добавления комментария');
+    const newComment = await res.json();
+    if (!currentTopicDetail.comments) currentTopicDetail.comments = [];
+    currentTopicDetail.comments.push(newComment);
+    contentElem.value = '';
+    renderTopicComments(currentTopicDetail.comments);
+    document.getElementById('topic-detail-comments-count').innerText = currentTopicDetail.comments.length;
+    showToast('Комментарий успешно добавлен!');
+    loadForumTopics();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send" class="w-3.5 h-3.5"></i><span>Отправить ответ</span>';
+    lucide.createIcons();
+  }
+}
+
+// ==========================================
+// --- CREATOR IDEAS HUB ---
+// ==========================================
+
+let allIdeas = [];
+
+async function loadIdeas() {
+  const container = document.getElementById('ideas-container');
+  if (container) {
+    container.innerHTML = '<p class="text-slate-500 text-center col-span-2 py-8">Загрузка предложений...</p>';
+  }
+  const sortBy = document.getElementById('ideas-sort-select')?.value || 'popular';
+  try {
+    const res = await fetch(`/api/ideas/list?status=${currentIdeasStatus}&sort_by=${sortBy}`);
+    allIdeas = await res.json();
+    renderIdeas(allIdeas);
+  } catch (err) {
+    if (container) container.innerHTML = `<p class="text-rose-400 text-center col-span-2 py-8">Ошибка: ${err.message}</p>`;
+  }
+}
+
+function filterIdeas(status) {
+  currentIdeasStatus = status;
+  document.querySelectorAll('.idea-filter-btn').forEach(btn => {
+    btn.className = 'idea-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800';
+  });
+  event.target.className = 'idea-filter-btn active px-3 py-1.5 rounded-xl text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+  loadIdeas();
+}
+
+function renderIdeas(ideas) {
+  const container = document.getElementById('ideas-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (ideas.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-2 glass-panel rounded-2xl p-8 border border-slate-800 text-center space-y-3">
+        <div class="w-12 h-12 rounded-2xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center mx-auto">
+          <i data-lucide="lightbulb" class="w-6 h-6"></i>
+        </div>
+        <h4 class="text-sm font-bold text-white">В этой категории пока нет предложений</h4>
+        <p class="text-xs text-slate-400">Предложите свою крутую идею создателям PyForge!</p>
+        <button onclick="openNewIdeaModal()" class="px-4 py-2 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs">
+          Предложить идею
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  ideas.forEach(idea => {
+    const card = document.createElement('div');
+    card.className = 'glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-yellow-500/40 transition shadow-sm';
+
+    const statusColor = idea.status === 'completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                        idea.status === 'in_progress' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' :
+                        'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+
+    card.innerHTML = `
+      <div class="space-y-3">
+        <div class="flex items-start justify-between gap-3">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColor}">
+                ${escapeHtml(idea.status_label || '💡 На рассмотрении')}
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 font-mono border border-slate-800">
+                ${escapeHtml(idea.category)}
+              </span>
+            </div>
+            <h3 class="font-bold text-sm text-white pt-1">${escapeHtml(idea.title)}</h3>
+          </div>
+
+          <!-- Upvote Vote Button -->
+          <button onclick="voteForIdea('${idea.id}')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 hover:bg-yellow-500/20 border border-slate-800 hover:border-yellow-500/40 text-slate-300 hover:text-yellow-400 transition min-w-[50px] flex-shrink-0 group">
+            <i data-lucide="chevron-up" class="w-4 h-4 group-hover:-translate-y-0.5 transition"></i>
+            <span class="font-extrabold text-xs text-white group-hover:text-yellow-400 font-mono">${idea.votes || 0}</span>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed font-sans">${escapeHtml(idea.description)}</p>
+
+        <!-- Developer Response Box -->
+        ${idea.dev_response ? `
+          <div class="p-3 rounded-xl bg-gradient-to-r from-yellow-950/30 to-slate-950 border border-yellow-500/20 text-xs space-y-1">
+            <div class="flex items-center space-x-1.5 text-yellow-400 font-bold text-[11px]">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              <span>Ответ создателей PyForge:</span>
+            </div>
+            <p class="text-slate-300 text-[11px] leading-normal">${escapeHtml(idea.dev_response)}</p>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-850 text-xs text-slate-400">
+        <div class="flex items-center space-x-2">
+          <img src="${idea.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${idea.author_username}`}" class="w-5 h-5 rounded-md border border-slate-700 bg-slate-900">
+          <span class="text-[11px] text-slate-300 font-medium">${escapeHtml(idea.author_display_name || idea.author_username)}</span>
+        </div>
+        <span class="text-[10px] text-slate-500 font-mono">${idea.created_at ? idea.created_at.split('T')[0] : ''}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  lucide.createIcons();
+}
+
+async function voteForIdea(ideaId) {
+  try {
+    const res = await fetch('/api/ideas/vote', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ idea_id: ideaId })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.has_voted ? 'Голос за идею отдан! 🚀' : 'Голос отменен');
+      loadIdeas();
+    }
+  } catch (e) {
+    showToast('Ошибка при голосовании');
+  }
+}
+
+function openNewIdeaModal() {
+  const token = getAuthToken();
+  if (!token) {
+    showToast('Пожалуйста, авторизуйтесь для отправки предложений');
+    openAuthModal('login');
+    return;
+  }
+  document.getElementById('new-idea-modal').classList.remove('hidden');
+}
+
+function closeNewIdeaModal() {
+  document.getElementById('new-idea-modal').classList.add('hidden');
+}
+
+async function handleCreateIdeaSubmit(event) {
+  event.preventDefault();
+  const title = document.getElementById('new-idea-title').value.trim();
+  const category = document.getElementById('new-idea-category').value;
+  const description = document.getElementById('new-idea-description').value.trim();
+  const btn = document.getElementById('btn-submit-idea');
+
+  btn.disabled = true;
+  btn.innerHTML = 'Отправка...';
+
+  try {
+    const res = await fetch('/api/ideas/create', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ title, category, description })
+    });
+    if (!res.ok) throw new Error('Ошибка отправки идеи');
+    closeNewIdeaModal();
+    showToast('Ваша идея успешно отправлена создателям! 🎉');
+    document.getElementById('new-idea-title').value = '';
+    document.getElementById('new-idea-description').value = '';
+    loadIdeas();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Отправить предложение';
+  }
+}
 
 
