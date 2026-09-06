@@ -412,6 +412,31 @@ async def dev_import_backup(req: Dict[str, Any], authorization: Optional[str] = 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/api/dev/db/status")
+async def dev_db_status(authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        DevService.verify_creator(t)
+        from .services.db_storage import DBStorage
+        return DBStorage.test_connection()
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/dev/db/sync")
+async def dev_db_sync(authorization: Optional[str] = Header(None)):
+    t = extract_token(authorization)
+    try:
+        DevService.verify_creator(t)
+        from .services.db_storage import DBStorage
+        return DBStorage.sync_local_to_supabase()
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 
 # --- DAILY QUESTS ---
 

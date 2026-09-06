@@ -192,55 +192,44 @@ class LRUCache:
     }
 ]
 
-import json
-from pathlib import Path
-
-CUSTOM_TASKS_FILE = Path(__file__).resolve().parent / "custom_tasks.json"
-
 def get_all_practice_tasks():
     tasks = list(PRACTICE_TASKS)
-    if CUSTOM_TASKS_FILE.exists():
-        try:
-            with open(CUSTOM_TASKS_FILE, "r", encoding="utf-8") as f:
-                custom_list = json.load(f)
-                if isinstance(custom_list, list):
-                    tasks.extend(custom_list)
-        except Exception:
-            pass
+    try:
+        from ..services.db_storage import DBStorage
+        custom_list = DBStorage.load_json("custom_tasks.json", default=[])
+        if isinstance(custom_list, list):
+            tasks.extend(custom_list)
+    except Exception:
+        pass
     return tasks
 
 def save_custom_practice_task(task_dict: dict) -> dict:
-    custom_list = []
-    if CUSTOM_TASKS_FILE.exists():
-        try:
-            with open(CUSTOM_TASKS_FILE, "r", encoding="utf-8") as f:
-                custom_list = json.load(f)
-                if not isinstance(custom_list, list):
-                    custom_list = []
-        except Exception:
+    try:
+        from ..services.db_storage import DBStorage
+        custom_list = DBStorage.load_json("custom_tasks.json", default=[])
+        if not isinstance(custom_list, list):
             custom_list = []
 
-    existing_idx = next((i for i, t in enumerate(custom_list) if t["id"] == task_dict["id"]), None)
-    if existing_idx is not None:
-        custom_list[existing_idx] = task_dict
-    else:
-        custom_list.append(task_dict)
+        existing_idx = next((i for i, t in enumerate(custom_list) if t["id"] == task_dict["id"]), None)
+        if existing_idx is not None:
+            custom_list[existing_idx] = task_dict
+        else:
+            custom_list.append(task_dict)
 
-    CUSTOM_TASKS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(CUSTOM_TASKS_FILE, "w", encoding="utf-8") as f:
-        json.dump(custom_list, f, ensure_ascii=False, indent=2)
+        DBStorage.save_json("custom_tasks.json", custom_list)
+    except Exception as e:
+        print(f"Ошибка сохранения задачи: {e}")
 
     return task_dict
 
 def delete_custom_practice_task(task_id: str) -> bool:
-    if not CUSTOM_TASKS_FILE.exists():
-        return False
     try:
-        with open(CUSTOM_TASKS_FILE, "r", encoding="utf-8") as f:
-            custom_list = json.load(f)
+        from ..services.db_storage import DBStorage
+        custom_list = DBStorage.load_json("custom_tasks.json", default=[])
+        if not isinstance(custom_list, list):
+            return False
         filtered = [t for t in custom_list if t["id"] != task_id]
-        with open(CUSTOM_TASKS_FILE, "w", encoding="utf-8") as f:
-            json.dump(filtered, f, ensure_ascii=False, indent=2)
+        DBStorage.save_json("custom_tasks.json", filtered)
         return True
     except Exception:
         return False

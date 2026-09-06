@@ -3494,6 +3494,8 @@ function switchDevPanelTab(tabName) {
     loadDevIdeasSelect();
   } else if (tabName === 'users') {
     loadDevUsersTable();
+  } else if (tabName === 'backup') {
+    handleDevCheckDbStatus();
   }
 
   lucide.createIcons();
@@ -4186,6 +4188,66 @@ async function handleDevImportBackupFile(event) {
     event.target.value = '';
   }
 }
+
+async function handleDevCheckDbStatus() {
+  const badge = document.getElementById('dev-supabase-status-badge');
+  if (badge) {
+    badge.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>Проверка...</span>';
+    lucide.createIcons();
+  }
+  try {
+    const res = await fetch('/api/dev/db/status', { headers: getAuthHeaders() });
+    const data = await res.json();
+    if (badge) {
+      if (data.connected) {
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Подключено (${data.latency_ms} ms)</span>`;
+      } else if (data.configured) {
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 flex items-center gap-1';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400"></span><span>Таблица не создана</span>`;
+      } else {
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>Локальный JSON</span>`;
+      }
+    }
+  } catch (err) {
+    if (badge) {
+      badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1';
+      badge.innerHTML = `<span>Локальный режим</span>`;
+    }
+  }
+}
+
+async function handleDevSyncToSupabase() {
+  const btn = event?.target?.closest('button');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>Синхронизация...</span>';
+    lucide.createIcons();
+  }
+  try {
+    const res = await fetch('/api/dev/db/sync', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message || 'Синхронизация с Supabase завершена! ☁️');
+      handleDevCheckDbStatus();
+    } else {
+      alert(data.detail || 'Ошибка синхронизации с Supabase');
+    }
+  } catch (err) {
+    alert('Ошибка: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i><span>Синхронизировать локальную базу в Supabase ☁️</span>';
+      lucide.createIcons();
+    }
+  }
+}
+
 
 
 

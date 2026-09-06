@@ -27,21 +27,17 @@ INITIAL_TOPICS = []
 class ForumService:
     @classmethod
     def _load_topics(cls) -> List[Dict[str, Any]]:
-        if not FORUM_DATA_FILE.exists():
-            cls._save_topics(INITIAL_TOPICS)
-            return list(INITIAL_TOPICS)
-        try:
-            with open(FORUM_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            cls._save_topics(INITIAL_TOPICS)
-            return list(INITIAL_TOPICS)
+        from .db_storage import DBStorage
+        data = DBStorage.load_json("forum_data.json", default=None)
+        if data is None:
+            data = list(INITIAL_TOPICS)
+            cls._save_topics(data)
+        return data if isinstance(data, list) else []
 
     @classmethod
     def _save_topics(cls, topics: List[Dict[str, Any]]):
-        FORUM_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(FORUM_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(topics, f, ensure_ascii=False, indent=2)
+        from .db_storage import DBStorage
+        DBStorage.save_json("forum_data.json", topics)
 
     @classmethod
     def get_categories(cls) -> List[Dict[str, Any]]:

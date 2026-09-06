@@ -2187,9 +2187,59 @@
               </div>
             </div>
 
+            <!-- Supabase Cloud Integration Card -->
+            <div class="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/30 border border-emerald-500/30 space-y-3">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                  <span class="font-bold text-white text-xs flex items-center gap-1">
+                    <span>Облачная база данных Supabase</span>
+                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">PostgreSQL</span>
+                  </span>
+                </div>
+                <div id="dev-supabase-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                  <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i>
+                  <span>Проверка подключения...</span>
+                </div>
+              </div>
+
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Когда настроены переменные <code class="text-amber-300 font-mono">SUPABASE_URL</code> и <code class="text-amber-300 font-mono">SUPABASE_KEY</code>, все регистрации, балансы, роли и посты сохраняются напрямую в ваше облако Supabase и никогда не сбрасываются.
+              </p>
+
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button onclick="handleDevCheckDbStatus()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 flex items-center gap-1.5 transition">
+                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                  <span>Проверить статус</span>
+                </button>
+                <button onclick="handleDevSyncToSupabase()" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] font-bold border border-emerald-500/40 flex items-center gap-1.5 transition">
+                  <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
+                  <span>Синхронизировать локальную базу в Supabase ☁️</span>
+                </button>
+              </div>
+
+              <!-- SQL Schema helper -->
+              <details class="text-[11px] bg-slate-950/80 p-3 rounded-lg border border-slate-800 text-slate-400">
+                <summary class="font-bold text-slate-300 cursor-pointer hover:text-white flex items-center gap-1">
+                  <i data-lucide="terminal" class="w-3.5 h-3.5 text-sky-400"></i>
+                  <span>SQL-скрипт для создания таблицы в Supabase SQL Editor (нажмите, чтобы открыть)</span>
+                </summary>
+                <div class="mt-2 space-y-2">
+                  <p class="text-[10px] text-slate-400">Скопируйте этот запрос и выполните его в Supabase ➔ <b>SQL Editor</b> ➔ <b>Run</b>:</p>
+                  <pre class="p-2.5 rounded bg-slate-900 border border-slate-800 font-mono text-[10px] text-emerald-300 overflow-x-auto select-all">CREATE TABLE IF NOT EXISTS pyforge_store (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+ALTER TABLE pyforge_store ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to pyforge_store" ON pyforge_store FOR ALL USING (true) WITH CHECK (true);</pre>
+                </div>
+              </details>
+            </div>
+
             <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2">
               <i data-lucide="shield-check" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
-              <span>Все данные шифруются и проверяются сервером. Импорт доступен только Создателю Chevels.</span>
+              <span>Все данные шифруются и проверяются сервером. Доступ к управлению базой есть только у Создателя Chevels.</span>
             </div>
           </div>
         </div>

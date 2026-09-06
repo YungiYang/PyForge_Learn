@@ -26,41 +26,30 @@ class AuthService:
 
     @classmethod
     def _load_users(cls) -> Dict[str, Dict[str, Any]]:
-        """Загрузка пользователей из файла"""
-        if not USERS_DATA_FILE.exists():
-            users_map = {u["username"].lower(): u for u in INITIAL_DEMO_USERS}
-            cls._save_users(users_map)
-            return users_map
-        try:
-            with open(USERS_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            users_map = {u["username"].lower(): u for u in INITIAL_DEMO_USERS}
-            cls._save_users(users_map)
-            return users_map
+        """Загрузка пользователей через DBStorage (Supabase / Local)"""
+        from .db_storage import DBStorage
+        data = DBStorage.load_json("users.json", default=None)
+        if data is None:
+            data = {u["username"].lower(): u for u in INITIAL_DEMO_USERS}
+            cls._save_users(data)
+        return data
 
     @classmethod
     def _save_users(cls, users: Dict[str, Dict[str, Any]]):
-        USERS_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(USERS_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(users, f, ensure_ascii=False, indent=2)
+        from .db_storage import DBStorage
+        DBStorage.save_json("users.json", users)
 
     @classmethod
     def _load_sessions(cls) -> Dict[str, str]:
-        """Загрузка активных токенов сессий: token -> username"""
-        if not SESSIONS_DATA_FILE.exists():
-            return {}
-        try:
-            with open(SESSIONS_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
+        """Загрузка активных токенов сессий через DBStorage (Supabase / Local)"""
+        from .db_storage import DBStorage
+        data = DBStorage.load_json("sessions.json", default={})
+        return data if isinstance(data, dict) else {}
 
     @classmethod
     def _save_sessions(cls, sessions: Dict[str, str]):
-        SESSIONS_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(SESSIONS_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(sessions, f, ensure_ascii=False, indent=2)
+        from .db_storage import DBStorage
+        DBStorage.save_json("sessions.json", sessions)
 
     @classmethod
     def register(cls, username: str, password: str, display_name: Optional[str] = None) -> Dict[str, Any]:

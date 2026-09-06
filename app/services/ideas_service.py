@@ -17,21 +17,17 @@ INITIAL_IDEAS = []
 class IdeasService:
     @classmethod
     def _load_ideas(cls) -> List[Dict[str, Any]]:
-        if not IDEAS_DATA_FILE.exists():
-            cls._save_ideas(INITIAL_IDEAS)
-            return list(INITIAL_IDEAS)
-        try:
-            with open(IDEAS_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            cls._save_ideas(INITIAL_IDEAS)
-            return list(INITIAL_IDEAS)
+        from .db_storage import DBStorage
+        data = DBStorage.load_json("ideas_data.json", default=None)
+        if data is None:
+            data = list(INITIAL_IDEAS)
+            cls._save_ideas(data)
+        return data if isinstance(data, list) else []
 
     @classmethod
     def _save_ideas(cls, ideas: List[Dict[str, Any]]):
-        IDEAS_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(IDEAS_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(ideas, f, ensure_ascii=False, indent=2)
+        from .db_storage import DBStorage
+        DBStorage.save_json("ideas_data.json", ideas)
 
     @classmethod
     def list_ideas(cls, category: Optional[str] = None, status: Optional[str] = None, sort_by: str = "popular") -> List[Dict[str, Any]]:

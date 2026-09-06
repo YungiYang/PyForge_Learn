@@ -29,27 +29,17 @@ class DailyQuestsService:
     @classmethod
     def _load_data(cls) -> Dict[str, Any]:
         today = cls._get_today_str()
-        if not QUESTS_DATA_FILE.exists():
+        from .db_storage import DBStorage
+        data = DBStorage.load_json('daily_quests.json', default=None)
+        if not data or data.get('date') != today:
             data = {'date': today, 'user_progress': {}}
             cls._save_data(data)
-            return data
-        try:
-            with open(QUESTS_DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            if data.get('date') != today:
-                data = {'date': today, 'user_progress': {}}
-                cls._save_data(data)
-            return data
-        except Exception:
-            data = {'date': today, 'user_progress': {}}
-            cls._save_data(data)
-            return data
+        return data
 
     @classmethod
     def _save_data(cls, data: Dict[str, Any]):
-        QUESTS_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(QUESTS_DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        from .db_storage import DBStorage
+        DBStorage.save_json('daily_quests.json', data)
 
     @classmethod
     def _resolve_username(cls, token_or_uname: Optional[str]) -> str:

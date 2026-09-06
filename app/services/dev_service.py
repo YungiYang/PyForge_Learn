@@ -217,19 +217,17 @@ class DevService:
             {"id": "mentor", "name": "Эксперт & Ментор", "icon": "brain", "color_class": "bg-cyan-500/20 border-cyan-500/50 text-cyan-300", "is_builtin": True},
             {"id": "user", "name": "Пользователь", "icon": "user", "color_class": "text-slate-400 border-slate-700 bg-slate-800/40", "is_builtin": True}
         ]
-        rf = cls._get_custom_roles_file()
-        if rf.exists():
-            try:
-                with open(rf, "r", encoding="utf-8") as f:
-                    custom_list = json.load(f)
-                    if isinstance(custom_list, list):
-                        builtin_ids = {r["id"] for r in builtin_roles}
-                        for cr in custom_list:
-                            if cr.get("id") and cr["id"] not in builtin_ids:
-                                cr["is_builtin"] = False
-                                builtin_roles.append(cr)
-            except Exception:
-                pass
+        from .db_storage import DBStorage
+        try:
+            custom_list = DBStorage.load_json("custom_roles.json", default=[])
+            if isinstance(custom_list, list):
+                builtin_ids = {r["id"] for r in builtin_roles}
+                for cr in custom_list:
+                    if cr.get("id") and cr["id"] not in builtin_ids:
+                        cr["is_builtin"] = False
+                        builtin_roles.append(cr)
+        except Exception:
+            pass
         return builtin_roles
 
     @classmethod
@@ -253,24 +251,16 @@ class DevService:
             "is_builtin": False
         }
 
-        rf = cls._get_custom_roles_file()
-        rf.parent.mkdir(parents=True, exist_ok=True)
-        custom_list = []
-        if rf.exists():
-            try:
-                with open(rf, "r", encoding="utf-8") as f:
-                    custom_list = json.load(f)
-                    if not isinstance(custom_list, list):
-                        custom_list = []
-            except Exception:
-                custom_list = []
+        from .db_storage import DBStorage
+        custom_list = DBStorage.load_json("custom_roles.json", default=[])
+        if not isinstance(custom_list, list):
+            custom_list = []
 
         # Replace or append
         custom_list = [r for r in custom_list if r.get("id") != clean_id]
         custom_list.append(new_role)
 
-        with open(rf, "w", encoding="utf-8") as f:
-            json.dump(custom_list, f, ensure_ascii=False, indent=2)
+        DBStorage.save_json("custom_roles.json", custom_list)
 
         return {
             "success": True,
@@ -286,16 +276,14 @@ class DevService:
         if role_id.lower() in builtins:
             raise ValueError("Нельзя удалить стандартную системную роль")
 
-        rf = cls._get_custom_roles_file()
-        if rf.exists():
-            try:
-                with open(rf, "r", encoding="utf-8") as f:
-                    custom_list = json.load(f)
+        from .db_storage import DBStorage
+        try:
+            custom_list = DBStorage.load_json("custom_roles.json", default=[])
+            if isinstance(custom_list, list):
                 custom_list = [r for r in custom_list if r.get("id") != role_id]
-                with open(rf, "w", encoding="utf-8") as f:
-                    json.dump(custom_list, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
+                DBStorage.save_json("custom_roles.json", custom_list)
+        except Exception:
+            pass
 
         # Reset users having this deleted role to 'user'
         users = AuthService._load_users()
